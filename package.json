@@ -1,0 +1,12 @@
+{
+  "name": "starship-tracker-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first Starship coaching tracker MVP",
+  "type": "module",
+  "scripts": {
+    "start": "node tools/dev-server.mjs",
+    "test": "node tests/domain.test.mjs",
+    "check": "node tests/domain.test.mjs"
+  }
+}
