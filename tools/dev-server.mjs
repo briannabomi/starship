@@ -3,6 +3,7 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 
 const root = process.cwd();
+const host = process.env.HOST || "127.0.0.1";
 const port = Number(process.env.PORT || 4173);
 
 const types = {
@@ -28,6 +29,6 @@ const server = createServer((req, res) => {
   createReadStream(filePath).pipe(res);
 });
 
-server.listen(port, () => {
-  console.log(`Starship Tracker running at http://localhost:${port}`);
+server.listen(port, host, () => {
+  console.log(`Starship Tracker running at http://${host}:${port}`);
 });
