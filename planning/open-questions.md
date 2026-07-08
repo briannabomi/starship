@@ -8,6 +8,15 @@ These questions should guide the next planning conversation.
 - What should exist first as a concrete artifact?
 - Is the primary audience internal collaborators, future clients, or both?
 
+## Backend Decisions
+
+- Confirmed: Vercel + database.
+- Confirmed: Bri is the coach for the MVP.
+- Confirmed: each client has their own login.
+- Confirmed: a dummy Google Drive folder will represent a client for the MVP.
+- Default recommendation unless changed: Vercel Postgres/Neon-style Postgres database.
+- Default recommendation unless changed: invite-only magic-link login.
+
 ## Launch Context
 
 - Is there a target launch date?
