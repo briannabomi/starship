@@ -7,8 +7,12 @@ import {
   getRecommendedVideos,
   mockExtractCall,
   queueSms,
+  setSessionClient,
   submitAssignment,
   submitCheckIn,
+  submitRelationshipCheckIn,
+  updateRelationshipIssueStatus,
+  updateRelationshipTaskStatus,
   upsertJournal,
 } from "../src/domain.js";
 
@@ -159,11 +163,11 @@ function countBy(collection, predicate) {
 {
   const state = freshState();
 
-  assert.equal(queueSms(state, "client-alex", "Your internal_world transcript journal is ready", "sensitive-1"), true);
+  assert.equal(queueSms(state, "client-a", "Your internal_world transcript journal is ready", "sensitive-1"), true);
   assert.equal(state.deliveries[0].body, "You have a Starship update ready. Open Starship to review your next step.");
 
   state.clients[0].smsOptOut = true;
-  assert.equal(queueSms(state, "client-alex", "Open Starship", "after-stop"), false);
+  assert.equal(queueSms(state, "client-a", "Open Starship", "after-stop"), false);
 }
 
 {
@@ -182,9 +186,47 @@ function countBy(collection, predicate) {
 
 {
   const state = freshState();
-  const recommendations = getRecommendedVideos(state, "client-alex");
+  const recommendations = getRecommendedVideos(state, "client-b");
   assert.equal(recommendations[0].topic, "Embodiment");
   assert.ok(recommendations.length >= 1);
+}
+
+{
+  const state = freshState();
+  assert.equal(setSessionClient(state, "client-b"), true);
+  assert.equal(state.session.clientId, "client-b");
+  assert.equal(setSessionClient(state, "missing-client"), false);
+}
+
+{
+  const state = freshState();
+  assert.equal(updateRelationshipTaskStatus(state, "rel-task-1", "done"), true);
+  assert.equal(state.relationshipTasks.find((item) => item.id === "rel-task-1").status, "done");
+  assert.equal(state.alerts[0].type, "relationship_task_done");
+
+  assert.equal(updateRelationshipTaskStatus(state, "rel-task-2", "open"), true);
+  assert.equal(state.relationshipTasks.find((item) => item.id === "rel-task-2").status, "open");
+  assert.equal(updateRelationshipTaskStatus(state, "rel-task-2", "invalid"), false);
+
+  assert.equal(updateRelationshipIssueStatus(state, "issue-1", "repair_in_progress"), true);
+  assert.equal(state.relationshipIssues.find((item) => item.id === "issue-1").status, "repair_in_progress");
+  assert.equal(updateRelationshipIssueStatus(state, "issue-1", "invalid"), false);
+}
+
+{
+  const state = freshState();
+  assert.equal(
+    submitRelationshipCheckIn(state, "rel-checkin-1", {
+      sharedQuestion: "What repair matters most?",
+      clientAInput: "I want a cleaner ask.",
+      clientBInput: "I want less correction.",
+      stuck: "We still loop on logistics.",
+    }),
+    true,
+  );
+  assert.equal(state.relationshipCheckIns[0].status, "submitted");
+  assert.equal(state.alerts[0].type, "relationship_checkin_submitted");
+  assert.equal(submitRelationshipCheckIn(state, "missing-checkin", {}), false);
 }
 
 console.log("Starship domain workflow tests passed.");

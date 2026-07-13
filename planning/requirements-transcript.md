@@ -60,6 +60,18 @@ Captured from user prompt on 2026-07-08.
 - Clients can rewatch videos.
 - Clients can be pointed to videos by topic.
 
+### Relationship / Couple Tracking Addendum
+
+Added 2026-07-13:
+
+- MVP should include Client A and Client B as fake test clients.
+- Client A and Client B may be a couple or relationship system.
+- Coach should see both clients on one dashboard.
+- System should support a shared project-manager-style relationship tracker.
+- Shared tracker should include open problems, blocks, assigned tasks, desires, fights, and repair status.
+- Shared tasks may be assigned to Client A, Client B, or both.
+- Individual client privacy should remain separate from shared relationship records.
+
 ## Research And Planning Need
 
 Research agents should identify industry best practices for implementing these requirements across product design, coaching/client portals, integrations, security/privacy, reminders, metrics, knowledge libraries, and AI transcript extraction.

@@ -8,6 +8,10 @@ Date: 2026-07-08
 - Roles for MVP: Bri as coach, clients as clients.
 - Client access: each client has their own login.
 - Client data source for MVP: a dummy Google Drive folder representing one client.
+- Dummy Google Drive folder: `https://drive.google.com/drive/folders/1XqHcQY8wJ5BJk3K4zOfzN8nHizL1lMJt?usp=drive_link`
+- Vercel project start URL: `https://vercel.com/new?teamSlug=briannabomis-projects`
+- Fake email/phone test data should be used for MVP back-and-forth testing.
+- MVP also needs a couple/relationship workspace with Client A and Client B visible together on the coach dashboard.
 - Product goal: move from local browser demo data to real persisted client records, with secure role-based access.
 
 ## Recommended Backend Shape
@@ -64,6 +68,34 @@ Clients should not see:
 - Raw transcripts unless explicitly shared.
 - Internal audit/security logs.
 
+### Relationship / Couple Workspace
+
+The MVP should support a shared workspace for two clients who may be a couple or relationship system.
+
+For Client A and Client B, Bri needs to see:
+
+- Both individual client profiles on one dashboard.
+- Shared tasks assigned to one or both clients.
+- Open relationship problems.
+- Blocks.
+- Fight/repair records.
+- Desires named by each client.
+- Status for each shared task or problem: open, blocked, repair in progress, done/closed.
+
+Each individual client should still have their own login, journal, assignments, check-ins, action items, and roadmap. The relationship workspace is an additional shared layer, not a replacement for individual privacy.
+
+Backend implications:
+
+- Add `relationship_workspaces`.
+- Add `relationship_workspace_members`.
+- Add `relationship_issues`.
+- Add `relationship_tasks`.
+- Add `relationship_desires`.
+- Add `relationship_fights`.
+- Add `relationship_check_ins`.
+- Shared records must define visibility and whether both clients can see them.
+- Private individual journal entries should never automatically become shared relationship records.
+
 ## Database Tables Needed First
 
 ### Core Access
@@ -83,6 +115,13 @@ Clients should not see:
 - `alerts`
 - `completion_events`
 - `audit_events`
+- `relationship_workspaces`
+- `relationship_workspace_members`
+- `relationship_issues`
+- `relationship_tasks`
+- `relationship_desires`
+- `relationship_fights`
+- `relationship_check_ins`
 
 ### Roadmap And Progress
 

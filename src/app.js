@@ -6,9 +6,14 @@ import {
   getClient,
   getJournalForAssignment,
   getRecommendedVideos,
+  getWorkspace,
   mockExtractCall,
+  setSessionClient,
   submitAssignment,
   submitCheckIn,
+  submitRelationshipCheckIn,
+  updateRelationshipIssueStatus,
+  updateRelationshipTaskStatus,
   upsertJournal,
 } from "./domain.js";
 
@@ -22,6 +27,11 @@ function persist() {
 
 function setRole(role) {
   state.session.role = role;
+  persist();
+}
+
+function selectClient(clientId) {
+  setSessionClient(state, clientId);
   persist();
 }
 
@@ -79,6 +89,7 @@ function blockActionItem(id) {
 
 function shell(content) {
   const client = getClient(state);
+  const workspace = getWorkspace(state);
   return `
     <header class="topbar">
       <div>
@@ -92,18 +103,30 @@ function shell(content) {
       </div>
     </header>
     <main>
+      <section class="client-switcher">
+        ${state.clients
+          .map(
+            (item) => `
+              <button class="${item.id === state.session.clientId ? "active" : ""}" data-action="select-client" data-id="${item.id}">
+                ${item.name}
+              </button>
+            `,
+          )
+          .join("")}
+        <a href="${state.backendConfig.dummyDriveFolderUrl}" target="_blank" rel="noreferrer">Dummy Drive folder</a>
+      </section>
       <section class="identity-band">
         <div>
-          <span class="label">Client</span>
+          <span class="label">Selected client</span>
           <strong>${client.name}</strong>
         </div>
         <div>
-          <span class="label">Current focus</span>
+          <span class="label">Client focus</span>
           <strong>${client.focus}</strong>
         </div>
         <div>
-          <span class="label">Next call</span>
-          <strong>${client.nextCallAt}</strong>
+          <span class="label">Relationship workspace</span>
+          <strong>${workspace?.name || "Individual"}</strong>
         </div>
       </section>
       ${content}
@@ -118,6 +141,11 @@ function coachDashboard() {
   const reviewedActions = state.actionItemCandidates.filter((item) => item.reviewStatus !== "candidate").slice(0, 3);
   const checkIn = clientItems(state.weeklyCheckIns)[0];
   return shell(`
+    <section class="grid two">
+      <article class="panel">${clientRosterView()}</article>
+      <article class="panel">${relationshipDashboard()}</article>
+    </section>
+
     <section class="grid two">
       <article class="panel">
         <div class="panel-title">
@@ -218,12 +246,139 @@ function clientDashboard() {
       <article class="panel">${actionItemsView()}</article>
       <article class="panel">${roadmapView()}</article>
     </section>
+    <section class="panel">${relationshipClientView()}</section>
     <section class="grid two">
       <article class="panel">${journalArchiveView()}</article>
       <article class="panel">${progressEvidenceView()}</article>
     </section>
     <section class="panel">${libraryView()}</section>
   `);
+}
+
+function clientRosterView() {
+  return `
+    <div class="panel-title"><h2>Client dashboard</h2><span class="pill">${state.clients.length} client logins</span></div>
+    ${state.clients
+      .map((client) => {
+        const assignments = state.assignments.filter((item) => item.clientId === client.id);
+        const actions = state.actionItems.filter((item) => item.clientId === client.id && item.status !== "done");
+        const checkIn = state.weeklyCheckIns.find((item) => item.clientId === client.id);
+        return `
+          <div class="row tall">
+            <div>
+              <strong>${client.name}</strong>
+              <p>${client.email} · ${client.phone}</p>
+              <small>${assignments.length} prompts · ${actions.length} open actions · tracker ${labelize(checkIn?.status || "not_scheduled")}</small>
+            </div>
+            <button data-action="select-client" data-id="${client.id}">${client.id === state.session.clientId ? "Viewing" : "View"}</button>
+          </div>
+        `;
+      })
+      .join("")}
+  `;
+}
+
+function relationshipDashboard() {
+  const workspace = getWorkspace(state);
+  const issues = relationshipItems(state.relationshipIssues);
+  const tasks = relationshipItems(state.relationshipTasks);
+  const desires = relationshipItems(state.relationshipDesires);
+  const fights = relationshipItems(state.fights);
+  const openIssues = issues.filter((item) => item.status !== "closed");
+  const blockedTasks = tasks.filter((item) => item.status === "blocked");
+  return `
+    <div class="panel-title"><h2>${workspace?.name || "Relationship workspace"}</h2><span class="pill">${openIssues.length} open problems</span></div>
+    <p>${workspace?.focus || "Track shared relationship work."}</p>
+    <small>Drive source: ${workspace?.sourceFolderUrl || state.backendConfig.dummyDriveFolderUrl}</small>
+    <div class="metric-strip">
+      <span><strong>${tasks.filter((item) => item.status === "open").length}</strong> open tasks</span>
+      <span><strong>${blockedTasks.length}</strong> blocked</span>
+      <span><strong>${desires.length}</strong> desires tracked</span>
+      <span><strong>${fights.length}</strong> fights logged</span>
+    </div>
+    <h3>Open problems</h3>
+    ${openIssues.map(relationshipIssueCard).join("") || emptyState("No open relationship problems.")}
+    <h3>Shared tasks</h3>
+    ${tasks.map(relationshipTaskCard).join("") || emptyState("No shared tasks yet.")}
+  `;
+}
+
+function relationshipClientView() {
+  const workspace = getWorkspace(state);
+  const tasks = relationshipItems(state.relationshipTasks).filter(
+    (task) => task.assignedClientIds?.includes(state.session.clientId) || task.assignedClientIds?.length > 1,
+  );
+  const desires = relationshipItems(state.relationshipDesires).filter((desire) => desire.clientId === state.session.clientId);
+  const checkIn = relationshipItems(state.relationshipCheckIns)[0];
+  return `
+    <div class="panel-title"><h2>${workspace?.name || "Relationship tracker"}</h2><span class="pill">shared workspace</span></div>
+    <section class="grid two">
+      <div>
+        <h3>Your desires</h3>
+        ${desires.map((item) => `<div class="row tall"><div><strong>${item.title}</strong><p>${item.description}</p><small>${labelize(item.status)} · named ${item.lastNamedAt}</small></div></div>`).join("") || emptyState("No desires logged yet.")}
+        <h3>Your shared tasks</h3>
+        ${tasks.map(relationshipTaskCard).join("") || emptyState("No shared tasks assigned to you.")}
+      </div>
+      <div>${relationshipCheckInForm(checkIn)}</div>
+    </section>
+  `;
+}
+
+function relationshipCheckInForm(checkIn) {
+  if (!checkIn) return emptyState("No relationship check-in scheduled.");
+  return `
+    <form class="relationship-checkin-form" data-action="relationship-checkin" data-id="${checkIn.id}">
+      <div class="panel-title"><h3>Relationship check-in</h3><span class="${statusClass(checkIn.status)}">${labelize(checkIn.status)}</span></div>
+      <small>${dueCue(checkIn.dueAt)}</small>
+      <label>Shared question<textarea name="sharedQuestion">${escapeHtml(checkIn.sharedQuestion)}</textarea></label>
+      <label>Client A input<textarea name="clientAInput">${escapeHtml(checkIn.clientAInput)}</textarea></label>
+      <label>Client B input<textarea name="clientBInput">${escapeHtml(checkIn.clientBInput)}</textarea></label>
+      <label>Stuck point<textarea name="stuck">${escapeHtml(checkIn.stuck)}</textarea></label>
+      <button type="submit">Submit relationship check-in</button>
+    </form>
+  `;
+}
+
+function relationshipIssueCard(issue) {
+  const owner = getClient(state, issue.ownerClientId)?.name || "Shared";
+  return `
+    <div class="candidate">
+      <span class="${statusClass(issue.status)}">${labelize(issue.status)}</span>
+      <h3>${issue.title}</h3>
+      <p>${issue.description}</p>
+      <small>${labelize(issue.severity)} · owner: ${owner} · opened ${issue.createdAt}</small>
+      <blockquote>${issue.desiredRepair}</blockquote>
+      <div class="button-row">
+        <button data-action="issue-open" data-id="${issue.id}">Open</button>
+        <button data-action="issue-blocked" data-id="${issue.id}">Blocked</button>
+        <button data-action="issue-repair" data-id="${issue.id}">Repair</button>
+        <button data-action="issue-closed" data-id="${issue.id}">Closed</button>
+      </div>
+    </div>
+  `;
+}
+
+function relationshipTaskCard(task) {
+  const assignees = task.assignedClientIds?.map((id) => getClient(state, id)?.name || id).join(" + ") || "Shared";
+  return `
+    <div class="row tall">
+      <div>
+        <strong>${task.title}</strong>
+        <p>${task.description}</p>
+        <small>${dueCue(task.dueAt)} · ${assignees}</small>
+        <span class="${statusClass(task.status)}">${labelize(task.status)}</span>
+      </div>
+      <div class="button-row">
+        <button data-action="rel-task-open" data-id="${task.id}" ${task.status === "open" ? "disabled" : ""}>Open</button>
+        <button data-action="rel-task-blocked" data-id="${task.id}" ${task.status === "blocked" ? "disabled" : ""}>Blocked</button>
+        <button data-action="rel-task-done" data-id="${task.id}" ${task.status === "done" ? "disabled" : ""}>Done</button>
+      </div>
+    </div>
+  `;
+}
+
+function relationshipItems(collection) {
+  return (collection || []).filter((item) => item.workspaceId === state.session.workspaceId);
 }
 
 function assignmentManager() {
@@ -471,6 +626,9 @@ function bindEvents() {
   app.querySelectorAll("[data-action='role']").forEach((button) => {
     button.addEventListener("click", () => setRole(button.dataset.role));
   });
+  app.querySelectorAll("[data-action='select-client']").forEach((button) => {
+    button.addEventListener("click", () => selectClient(button.dataset.id));
+  });
   app.querySelector("[data-action='reset']")?.addEventListener("click", () => {
     state = resetState();
     render();
@@ -505,6 +663,19 @@ function bindEvents() {
       persist();
     });
   });
+  app.querySelectorAll("[data-action^='rel-task-']").forEach((button) => {
+    button.addEventListener("click", () => {
+      updateRelationshipTaskStatus(state, button.dataset.id, button.dataset.action.replace("rel-task-", ""));
+      persist();
+    });
+  });
+  app.querySelectorAll("[data-action^='issue-']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const status = button.dataset.action.replace("issue-", "") === "repair" ? "repair_in_progress" : button.dataset.action.replace("issue-", "");
+      updateRelationshipIssueStatus(state, button.dataset.id, status);
+      persist();
+    });
+  });
   app.querySelectorAll(".assignment-form").forEach((form) => {
     form.addEventListener("submit", (event) => {
       event.preventDefault();
@@ -527,6 +698,19 @@ function bindEvents() {
         questions: data.get("questions"),
         alive: data.get("alive"),
         completed: data.get("completed"),
+        stuck: data.get("stuck"),
+      });
+      persist();
+    });
+  });
+  app.querySelectorAll(".relationship-checkin-form").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      submitRelationshipCheckIn(state, form.dataset.id, {
+        sharedQuestion: data.get("sharedQuestion"),
+        clientAInput: data.get("clientAInput"),
+        clientBInput: data.get("clientBInput"),
         stuck: data.get("stuck"),
       });
       persist();

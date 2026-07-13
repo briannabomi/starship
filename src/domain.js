@@ -73,6 +73,17 @@ export function getClient(state, clientId = state.session.clientId) {
   return state.clients.find((client) => client.id === clientId);
 }
 
+export function getWorkspace(state, workspaceId = state.session.workspaceId) {
+  return state.relationshipWorkspaces?.find((workspace) => workspace.id === workspaceId);
+}
+
+export function setSessionClient(state, clientId) {
+  if (!getClient(state, clientId)) return false;
+  state.session.clientId = clientId;
+  addAudit(state, "session.client_selected", `Selected ${getClient(state, clientId).name}`, "coach-bri", { clientId });
+  return true;
+}
+
 export function getJournalForAssignment(state, assignmentId) {
   return state.journalEntries.find((entry) => entry.assignmentId === assignmentId);
 }
@@ -321,6 +332,67 @@ export function completeAction(state, id) {
   pushAlert(state, item.clientId, "action_completed", `${item.title} was marked done.`);
   bumpRoadmap(state, "roadmap-embodiment", `Completed: ${item.title}`, item.clientId, "action_item_completion", item.id);
   addAudit(state, "action.completed", item.title, item.clientId);
+  return true;
+}
+
+export function updateRelationshipTaskStatus(state, taskId, status) {
+  const task = ensureList(state, "relationshipTasks").find((item) => item.id === taskId);
+  if (!task || !["open", "blocked", "done"].includes(status)) {
+    addAudit(state, "relationship_task.update_failed", "Relationship task status update failed", "system", { taskId, status });
+    return false;
+  }
+  if (task.status === status) return true;
+  task.status = status;
+  task.updatedAt = isoToday();
+  if (status === "done") task.completedAt = isoToday();
+  const workspace = getWorkspace(state, task.workspaceId);
+  const clientId = workspace?.clientIds?.[0] || state.session.clientId;
+  pushAlert(state, clientId, `relationship_task_${status}`, `${task.title} is now ${status}.`);
+  addAudit(state, "relationship_task.status_updated", `${task.title} is now ${status}`, "coach-bri", {
+    taskId,
+    status,
+    workspaceId: task.workspaceId,
+  });
+  return true;
+}
+
+export function updateRelationshipIssueStatus(state, issueId, status) {
+  const issue = ensureList(state, "relationshipIssues").find((item) => item.id === issueId);
+  if (!issue || !["open", "blocked", "repair_in_progress", "closed"].includes(status)) {
+    addAudit(state, "relationship_issue.update_failed", "Relationship issue status update failed", "system", { issueId, status });
+    return false;
+  }
+  if (issue.status === status) return true;
+  issue.status = status;
+  issue.updatedAt = isoToday();
+  const workspace = getWorkspace(state, issue.workspaceId);
+  const clientId = workspace?.clientIds?.[0] || state.session.clientId;
+  pushAlert(state, clientId, `relationship_issue_${status}`, `${issue.title} moved to ${status}.`);
+  addAudit(state, "relationship_issue.status_updated", `${issue.title} moved to ${status}`, "coach-bri", {
+    issueId,
+    status,
+    workspaceId: issue.workspaceId,
+  });
+  return true;
+}
+
+export function submitRelationshipCheckIn(state, checkInId, updates) {
+  const checkIn = ensureList(state, "relationshipCheckIns").find((item) => item.id === checkInId);
+  if (!checkIn) {
+    addAudit(state, "relationship_checkin.submit_failed", "Relationship check-in submission failed", "system", { checkInId });
+    return false;
+  }
+  const wasSubmitted = checkIn.status === "submitted";
+  Object.assign(checkIn, updates, { status: "submitted", submittedAt: isoToday() });
+  if (!wasSubmitted) {
+    const workspace = getWorkspace(state, checkIn.workspaceId);
+    const clientId = workspace?.clientIds?.[0] || state.session.clientId;
+    pushAlert(state, clientId, "relationship_checkin_submitted", `${workspace?.name || "Relationship"} check-in submitted.`);
+  }
+  addAudit(state, "relationship_checkin.submitted", "Relationship check-in submitted", "coach-bri", {
+    checkInId,
+    workspaceId: checkIn.workspaceId,
+  });
   return true;
 }
 
