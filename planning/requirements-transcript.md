@@ -78,6 +78,8 @@ Added 2026-07-13:
 - Journal archive should map back to the client's Google Drive journal folder.
 - Legacy Roadmap should point to the client's Google Drive roadmap file/folder now, or a future app source later.
 - Client portal should show linked Fathom recordings/transcripts and make clear action items are pulled into review before becoming client-visible.
+- Coach command center should allow Bri to create a new client with name, email, phone, current focus, next call date, and Google Drive folder.
+- Coach command center should allow Bri to archive a client without deleting their history.
 
 ## Research And Planning Need
 

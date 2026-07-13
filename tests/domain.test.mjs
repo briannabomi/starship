@@ -4,6 +4,8 @@ import {
   approveActionCandidate,
   approveInsightCandidate,
   completeAction,
+  archiveClient,
+  createClient,
   createRelationshipWorkspace,
   getRecommendedVideos,
   mockExtractCall,
@@ -197,6 +199,30 @@ function countBy(collection, predicate) {
   assert.equal(setSessionClient(state, "client-b"), true);
   assert.equal(state.session.clientId, "client-b");
   assert.equal(setSessionClient(state, "missing-client"), false);
+}
+
+{
+  const state = freshState();
+  const client = createClient(state, {
+    name: "Client D",
+    email: "client.d@example.test",
+    phone: "+15550101004",
+    focus: "Test new client intake",
+    nextCallAt: "2026-07-20",
+    folderUrl: "https://drive.google.com/mock-client-d",
+  });
+  assert.equal(client.name, "Client D");
+  assert.equal(state.session.clientId, client.id);
+  assert.equal(state.users.some((user) => user.id === client.id), true);
+  assert.equal(state.weeklyCheckIns.some((checkIn) => checkIn.clientId === client.id), true);
+  assert.equal(state.googleDriveSources.find((source) => source.clientId === client.id).status, "mock_ready");
+
+  assert.equal(archiveClient(state, client.id), true);
+  assert.equal(state.clients.find((item) => item.id === client.id).archivedAt.length, 10);
+  assert.notEqual(state.session.clientId, client.id);
+  assert.equal(setSessionClient(state, client.id), false, "archived clients should not become the active session client");
+  assert.equal(archiveClient(state, client.id), false);
+  assert.equal(createClient(state, { name: "" }), null);
 }
 
 {

@@ -2,7 +2,9 @@ import { loadState, resetState, saveState } from "./state.js";
 import {
   approveActionCandidate,
   approveInsightCandidate,
+  archiveClient,
   completeAction,
+  createClient,
   createRelationshipWorkspace,
   getClient,
   getJournalForAssignment,
@@ -120,6 +122,7 @@ function shell(content) {
       ${state.session.role === "coach" ? `
         <section class="client-switcher">
           ${state.clients
+            .filter((item) => !item.archivedAt)
             .map(
               (item) => `
                 <button class="${item.id === state.session.clientId ? "active" : ""}" data-action="select-client" data-id="${item.id}">
@@ -283,19 +286,20 @@ function clientDashboard() {
 function relationshipBuilderView() {
   const active = getWorkspace(state);
   const defaultClientAId = state.session.clientId;
-  const defaultClientBId = state.clients.find((client) => client.id !== defaultClientAId)?.id;
+  const activeClients = state.clients.filter((client) => !client.archivedAt);
+  const defaultClientBId = activeClients.find((client) => client.id !== defaultClientAId)?.id;
   return `
     <div class="panel-title"><h2>Manual relationship link</h2><span class="pill">coach only</span></div>
     <p>Create a shared workspace only when two clients are both in the program and you decide to connect them.</p>
     <form class="relationship-builder-form">
       <label>Client 1
         <select name="clientAId">
-          ${state.clients.map((client) => `<option value="${client.id}" ${client.id === defaultClientAId ? "selected" : ""}>${client.name}</option>`).join("")}
+          ${activeClients.map((client) => `<option value="${client.id}" ${client.id === defaultClientAId ? "selected" : ""}>${client.name}</option>`).join("")}
         </select>
       </label>
       <label>Client 2
         <select name="clientBId">
-          ${state.clients.map((client) => `<option value="${client.id}" ${client.id === defaultClientBId ? "selected" : ""}>${client.name}</option>`).join("")}
+          ${activeClients.map((client) => `<option value="${client.id}" ${client.id === defaultClientBId ? "selected" : ""}>${client.name}</option>`).join("")}
         </select>
       </label>
       <button type="submit">Create or select workspace</button>
@@ -344,9 +348,11 @@ function fathomRecordingsView() {
 }
 
 function clientRosterView() {
+  const activeClients = state.clients.filter((client) => !client.archivedAt);
+  const archivedClients = state.clients.filter((client) => client.archivedAt);
   return `
-    <div class="panel-title"><h2>Client dashboard</h2><span class="pill">${state.clients.length} client logins</span></div>
-    ${state.clients
+    <div class="panel-title"><h2>Client dashboard</h2><span class="pill">${activeClients.length} active</span></div>
+    ${activeClients
       .map((client) => {
         const assignments = state.assignments.filter((item) => item.clientId === client.id);
         const actions = state.actionItems.filter((item) => item.clientId === client.id && item.status !== "done");
@@ -358,11 +364,28 @@ function clientRosterView() {
               <p>${client.email} · ${client.phone}</p>
               <small>${assignments.length} prompts · ${actions.length} open actions · tracker ${labelize(checkIn?.status || "not_scheduled")}</small>
             </div>
-            <button data-action="select-client" data-id="${client.id}">${client.id === state.session.clientId ? "Viewing" : "View"}</button>
+            <div class="button-row">
+              <button data-action="select-client" data-id="${client.id}">${client.id === state.session.clientId ? "Viewing" : "View"}</button>
+              <button data-action="archive-client" data-id="${client.id}">Archive</button>
+            </div>
           </div>
         `;
       })
       .join("")}
+    <form class="new-client-form">
+      <h3>Add new client</h3>
+      <label>Name<input name="name" placeholder="Client name" required /></label>
+      <label>Email<input name="email" placeholder="client@example.test" /></label>
+      <label>Phone<input name="phone" placeholder="+15550109999" /></label>
+      <label>Current focus<input name="focus" placeholder="What they are working on" /></label>
+      <label>Next call date<input name="nextCallAt" type="date" /></label>
+      <label>Google Drive folder<input name="folderUrl" placeholder="https://drive.google.com/..." /></label>
+      <button type="submit">Create client</button>
+    </form>
+    ${archivedClients.length ? `
+      <h3>Archived clients</h3>
+      ${archivedClients.map((client) => `<div class="row"><span class="pill">archived</span><p>${client.name} · ${client.email}</p></div>`).join("")}
+    ` : ""}
   `;
 }
 
@@ -730,6 +753,12 @@ function bindEvents() {
   app.querySelectorAll("[data-action='select-client']").forEach((button) => {
     button.addEventListener("click", () => selectClient(button.dataset.id));
   });
+  app.querySelectorAll("[data-action='archive-client']").forEach((button) => {
+    button.addEventListener("click", () => {
+      archiveClient(state, button.dataset.id);
+      persist();
+    });
+  });
   app.querySelector("[data-action='reset']")?.addEventListener("click", () => {
     state = resetState();
     render();
@@ -822,6 +851,21 @@ function bindEvents() {
       event.preventDefault();
       const data = new FormData(form);
       createRelationshipWorkspace(state, data.get("clientAId"), data.get("clientBId"));
+      persist();
+    });
+  });
+  app.querySelectorAll(".new-client-form").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      createClient(state, {
+        name: data.get("name"),
+        email: data.get("email"),
+        phone: data.get("phone"),
+        focus: data.get("focus"),
+        nextCallAt: data.get("nextCallAt"),
+        folderUrl: data.get("folderUrl"),
+      });
       persist();
     });
   });

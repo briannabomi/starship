@@ -17,6 +17,7 @@ Date: 2026-07-08
 - "Framework and Cosmology Library" should be labeled "Video Library."
 - Journal archive and Legacy Roadmap should point back to Google Drive source locations for MVP.
 - Fathom recordings should be visible as linked call artifacts, with action items generated as review candidates before client visibility.
+- Coach command center needs client lifecycle controls: create client, add contact/profile/source-folder information, and archive client while retaining records.
 - Product goal: move from local browser demo data to real persisted client records, with secure role-based access.
 
 ## Recommended Backend Shape
@@ -101,6 +102,7 @@ Backend implications:
 - Add `relationship_check_ins`.
 - Shared records must define visibility and whether both clients can see them.
 - Private individual journal entries should never automatically become shared relationship records.
+- Archived clients should be hidden from active coach rosters and relationship-link pickers, but retained for history, audit, exports, and possible future restore.
 
 ## Database Tables Needed First
 

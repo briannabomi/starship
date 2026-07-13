@@ -78,9 +78,95 @@ export function getWorkspace(state, workspaceId = state.session.workspaceId) {
 }
 
 export function setSessionClient(state, clientId) {
-  if (!getClient(state, clientId)) return false;
+  const client = getClient(state, clientId);
+  if (!client || client.archivedAt) return false;
   state.session.clientId = clientId;
-  addAudit(state, "session.client_selected", `Selected ${getClient(state, clientId).name}`, "coach-bri", { clientId });
+  addAudit(state, "session.client_selected", `Selected ${client.name}`, "coach-bri", { clientId });
+  return true;
+}
+
+export function createClient(state, input = {}) {
+  const name = String(input.name || "").trim();
+  if (!name) {
+    addAudit(state, "client.create_failed", "Client creation failed because name is required", "system");
+    return null;
+  }
+  const idBase = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "client";
+  let id = idBase.startsWith("client-") ? idBase : `client-${idBase}`;
+  let suffix = 2;
+  while (getClient(state, id)) {
+    id = `${idBase}-${suffix}`;
+    if (!id.startsWith("client-")) id = `client-${id}`;
+    suffix += 1;
+  }
+  const email = String(input.email || `${id}@example.test`).trim();
+  const phone = String(input.phone || "+15550109999").trim();
+  const nextCallAt = String(input.nextCallAt || isoToday()).trim();
+  const focus = String(input.focus || "New client onboarding").trim();
+  const folderUrl = String(input.folderUrl || state.backendConfig?.dummyDriveFolderUrl || "").trim();
+  const client = {
+    id,
+    name,
+    email,
+    phone,
+    stage: "Sovereign Arc",
+    focus,
+    nextCallAt,
+    smsConsent: true,
+    aiConsent: true,
+    recordingConsent: true,
+    archivedAt: null,
+    createdAt: isoToday(),
+  };
+  ensureList(state, "users").push({
+    id,
+    role: "client",
+    name,
+    email,
+    phone,
+    timezone: "America/New_York",
+  });
+  ensureList(state, "clients").push(client);
+  ensureList(state, "weeklyCheckIns").push({
+    id: makeId("checkin"),
+    clientId: id,
+    dueAt: nextCallAt,
+    status: "not_opened",
+    focus: "",
+    questions: "",
+    alive: "",
+    completed: "",
+    stuck: "",
+    ratings: { energy: 3, clarity: 3, alignment: 3, progress: 2 },
+  });
+  ensureList(state, "googleDriveSources").push({
+    id: makeId("drive"),
+    clientId: id,
+    folderUrl,
+    journalFolderLabel: "Journal Entries",
+    roadmapLabel: "Legacy Roadmap",
+    fathomFolderLabel: "Fathom Recordings",
+    videoFolderLabel: "Video Library",
+    status: folderUrl ? "mock_ready" : "not_linked",
+  });
+  state.session.clientId = id;
+  addAudit(state, "client.created", `Created ${name}`, "coach-bri", { clientId: id });
+  return client;
+}
+
+export function archiveClient(state, clientId) {
+  const client = getClient(state, clientId);
+  if (!client || client.archivedAt) {
+    addAudit(state, "client.archive_failed", "Client archive failed", "system", { clientId });
+    return false;
+  }
+  client.archivedAt = isoToday();
+  client.status = "archived";
+  const user = ensureList(state, "users").find((item) => item.id === clientId);
+  if (user) user.status = "archived";
+  const activeClient = ensureList(state, "clients").find((item) => !item.archivedAt);
+  if (state.session.clientId === clientId && activeClient) state.session.clientId = activeClient.id;
+  addAudit(state, "client.archived", `Archived ${client.name}`, "coach-bri", { clientId });
   return true;
 }
 

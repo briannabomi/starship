@@ -1,5 +1,5 @@
 export const STORAGE_KEY = "starship-tracker-state-v1";
-export const STATE_VERSION = 3;
+export const STATE_VERSION = 4;
 
 export function today(offsetDays = 0) {
   const date = new Date();
@@ -57,6 +57,7 @@ export function createSeedState() {
         smsConsent: true,
         aiConsent: true,
         recordingConsent: true,
+        archivedAt: null,
       },
       {
         id: "client-b",
@@ -69,6 +70,7 @@ export function createSeedState() {
         smsConsent: true,
         aiConsent: true,
         recordingConsent: true,
+        archivedAt: null,
       },
       {
         id: "client-c",
@@ -81,6 +83,7 @@ export function createSeedState() {
         smsConsent: true,
         aiConsent: true,
         recordingConsent: true,
+        archivedAt: null,
       },
     ],
     googleDriveSources: [

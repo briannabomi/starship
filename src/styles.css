@@ -190,6 +190,7 @@ small {
   text-decoration: none;
 }
 
+input,
 select {
   width: 100%;
   min-height: 38px;
