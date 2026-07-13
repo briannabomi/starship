@@ -84,6 +84,55 @@ export function setSessionClient(state, clientId) {
   return true;
 }
 
+export function createRelationshipWorkspace(state, clientAId, clientBId) {
+  const clientA = getClient(state, clientAId);
+  const clientB = getClient(state, clientBId);
+  if (!clientA || !clientB || clientAId === clientBId) {
+    addAudit(state, "relationship_workspace.create_failed", "Relationship workspace creation failed validation", "system", {
+      clientAId,
+      clientBId,
+    });
+    return null;
+  }
+  const existing = ensureList(state, "relationshipWorkspaces").find((workspace) => {
+    const ids = [...(workspace.clientIds || [])].sort().join(":");
+    return ids === [clientAId, clientBId].sort().join(":");
+  });
+  if (existing) {
+    state.session.workspaceId = existing.id;
+    addAudit(state, "relationship_workspace.selected", `Selected ${existing.name}`, "coach-bri", { workspaceId: existing.id });
+    return existing;
+  }
+  const workspace = {
+    id: makeId("workspace"),
+    name: `${clientA.name} + ${clientB.name}`,
+    type: "couple",
+    clientIds: [clientAId, clientBId],
+    focus: "Coach-created shared workspace for open problems, blocks, tasks, desires, fights, and repair.",
+    nextCallAt: clientA.nextCallAt || clientB.nextCallAt,
+    sourceFolderUrl: state.backendConfig?.dummyDriveFolderUrl,
+    createdAt: isoToday(),
+  };
+  ensureList(state, "relationshipWorkspaces").push(workspace);
+  ensureList(state, "relationshipCheckIns").push({
+    id: makeId("rel-checkin"),
+    workspaceId: workspace.id,
+    dueAt: workspace.nextCallAt || isoToday(),
+    status: "not_opened",
+    focus: "What relationship issue should we bring to the next call?",
+    sharedQuestion: "",
+    clientAInput: "",
+    clientBInput: "",
+    stuck: "",
+  });
+  state.session.workspaceId = workspace.id;
+  addAudit(state, "relationship_workspace.created", `Created ${workspace.name}`, "coach-bri", {
+    workspaceId: workspace.id,
+    clientIds: workspace.clientIds,
+  });
+  return workspace;
+}
+
 export function getJournalForAssignment(state, assignmentId) {
   return state.journalEntries.find((entry) => entry.assignmentId === assignmentId);
 }

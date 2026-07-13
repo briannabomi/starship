@@ -4,6 +4,7 @@ import {
   approveActionCandidate,
   approveInsightCandidate,
   completeAction,
+  createRelationshipWorkspace,
   getRecommendedVideos,
   mockExtractCall,
   queueSms,
@@ -196,6 +197,21 @@ function countBy(collection, predicate) {
   assert.equal(setSessionClient(state, "client-b"), true);
   assert.equal(state.session.clientId, "client-b");
   assert.equal(setSessionClient(state, "missing-client"), false);
+}
+
+{
+  const state = freshState();
+  assert.equal(state.relationshipWorkspaces.some((workspace) => workspace.clientIds.includes("client-c")), false);
+
+  const workspace = createRelationshipWorkspace(state, "client-a", "client-c");
+  assert.equal(workspace.name, "Client A + Client C");
+  assert.equal(workspace.clientIds.includes("client-c"), true);
+  assert.equal(state.session.workspaceId, workspace.id);
+  assert.equal(state.relationshipCheckIns.some((checkIn) => checkIn.workspaceId === workspace.id), true);
+
+  const duplicate = createRelationshipWorkspace(state, "client-c", "client-a");
+  assert.equal(duplicate.id, workspace.id, "creating the same pair should select the existing workspace");
+  assert.equal(createRelationshipWorkspace(state, "client-a", "client-a"), null);
 }
 
 {

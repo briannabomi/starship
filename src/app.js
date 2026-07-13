@@ -3,6 +3,7 @@ import {
   approveActionCandidate,
   approveInsightCandidate,
   completeAction,
+  createRelationshipWorkspace,
   getClient,
   getJournalForAssignment,
   getRecommendedVideos,
@@ -37,6 +38,19 @@ function selectClient(clientId) {
 
 function clientItems(collection) {
   return collection.filter((item) => item.clientId === state.session.clientId);
+}
+
+function driveSourceFor(clientId = state.session.clientId) {
+  return state.googleDriveSources?.find((source) => source.clientId === clientId);
+}
+
+function clientWorkspaces(clientId = state.session.clientId) {
+  return (state.relationshipWorkspaces || []).filter((workspace) => workspace.clientIds?.includes(clientId));
+}
+
+function activeWorkspaceForView() {
+  if (state.session.role === "coach") return getWorkspace(state);
+  return clientWorkspaces()[0] || null;
 }
 
 function labelize(value) {
@@ -89,7 +103,7 @@ function blockActionItem(id) {
 
 function shell(content) {
   const client = getClient(state);
-  const workspace = getWorkspace(state);
+  const workspace = activeWorkspaceForView();
   return `
     <header class="topbar">
       <div>
@@ -103,30 +117,32 @@ function shell(content) {
       </div>
     </header>
     <main>
-      <section class="client-switcher">
-        ${state.clients
-          .map(
-            (item) => `
-              <button class="${item.id === state.session.clientId ? "active" : ""}" data-action="select-client" data-id="${item.id}">
-                ${item.name}
-              </button>
-            `,
-          )
-          .join("")}
-        <a href="${state.backendConfig.dummyDriveFolderUrl}" target="_blank" rel="noreferrer">Dummy Drive folder</a>
-      </section>
+      ${state.session.role === "coach" ? `
+        <section class="client-switcher">
+          ${state.clients
+            .map(
+              (item) => `
+                <button class="${item.id === state.session.clientId ? "active" : ""}" data-action="select-client" data-id="${item.id}">
+                  ${item.name}
+                </button>
+              `,
+            )
+            .join("")}
+          <a href="${state.backendConfig.dummyDriveFolderUrl}" target="_blank" rel="noreferrer">Dummy Drive folder</a>
+        </section>
+      ` : ""}
       <section class="identity-band">
         <div>
-          <span class="label">Selected client</span>
+          <span class="label">${state.session.role === "coach" ? "Selected client" : "Your portal"}</span>
           <strong>${client.name}</strong>
         </div>
         <div>
-          <span class="label">Client focus</span>
+          <span class="label">${state.session.role === "coach" ? "Client focus" : "Current focus"}</span>
           <strong>${client.focus}</strong>
         </div>
         <div>
-          <span class="label">Relationship workspace</span>
-          <strong>${workspace?.name || "Individual"}</strong>
+          <span class="label">${state.session.role === "coach" ? "Relationship workspace" : "Next call"}</span>
+          <strong>${state.session.role === "coach" ? workspace?.name || "No shared workspace selected" : client.nextCallAt}</strong>
         </div>
       </section>
       ${content}
@@ -143,7 +159,12 @@ function coachDashboard() {
   return shell(`
     <section class="grid two">
       <article class="panel">${clientRosterView()}</article>
+      <article class="panel">${relationshipBuilderView()}</article>
+    </section>
+
+    <section class="grid two">
       <article class="panel">${relationshipDashboard()}</article>
+      <article class="panel">${clientSourceView()}</article>
     </section>
 
     <section class="grid two">
@@ -246,6 +267,10 @@ function clientDashboard() {
       <article class="panel">${actionItemsView()}</article>
       <article class="panel">${roadmapView()}</article>
     </section>
+    <section class="grid two">
+      <article class="panel">${clientSourceView()}</article>
+      <article class="panel">${fathomRecordingsView()}</article>
+    </section>
     <section class="panel">${relationshipClientView()}</section>
     <section class="grid two">
       <article class="panel">${journalArchiveView()}</article>
@@ -253,6 +278,69 @@ function clientDashboard() {
     </section>
     <section class="panel">${libraryView()}</section>
   `);
+}
+
+function relationshipBuilderView() {
+  const active = getWorkspace(state);
+  const defaultClientAId = state.session.clientId;
+  const defaultClientBId = state.clients.find((client) => client.id !== defaultClientAId)?.id;
+  return `
+    <div class="panel-title"><h2>Manual relationship link</h2><span class="pill">coach only</span></div>
+    <p>Create a shared workspace only when two clients are both in the program and you decide to connect them.</p>
+    <form class="relationship-builder-form">
+      <label>Client 1
+        <select name="clientAId">
+          ${state.clients.map((client) => `<option value="${client.id}" ${client.id === defaultClientAId ? "selected" : ""}>${client.name}</option>`).join("")}
+        </select>
+      </label>
+      <label>Client 2
+        <select name="clientBId">
+          ${state.clients.map((client) => `<option value="${client.id}" ${client.id === defaultClientBId ? "selected" : ""}>${client.name}</option>`).join("")}
+        </select>
+      </label>
+      <button type="submit">Create or select workspace</button>
+    </form>
+    <div class="row tall">
+      <div>
+        <strong>Active workspace</strong>
+        <p>${active?.name || "None selected"}</p>
+        <small>Client portals remain individual. Shared items appear only for linked members.</small>
+      </div>
+    </div>
+  `;
+}
+
+function clientSourceView() {
+  const source = driveSourceFor();
+  const client = getClient(state);
+  return `
+    <div class="panel-title"><h2>Client source folder</h2><span class="pill">${source?.status ? labelize(source.status) : "not linked"}</span></div>
+    <p>${client.name}'s journal archive and Legacy Roadmap point back to their Google Drive workspace for this MVP.</p>
+    ${source ? `
+      <div class="row tall"><div><strong>Journal entries</strong><p>${source.journalFolderLabel}</p><small>Drive-backed journal source</small></div><a href="${source.folderUrl}" target="_blank" rel="noreferrer">Open Drive</a></div>
+      <div class="row tall"><div><strong>Legacy Roadmap</strong><p>${source.roadmapLabel}</p><small>Use Google Drive now; future app can replace this source.</small></div><a href="${source.folderUrl}" target="_blank" rel="noreferrer">Open roadmap</a></div>
+      <div class="row tall"><div><strong>Fathom recordings</strong><p>${source.fathomFolderLabel}</p><small>Recordings feed action item candidates after coach review.</small></div><a href="${source.folderUrl}" target="_blank" rel="noreferrer">Open folder</a></div>
+    ` : emptyState("No Google Drive source is linked to this client yet.")}
+  `;
+}
+
+function fathomRecordingsView() {
+  const calls = clientItems(state.calls);
+  return `
+    <div class="panel-title"><h2>Fathom recordings</h2><span class="pill">${calls.length} linked</span></div>
+    ${calls.length ? calls
+      .map((call) => `
+        <div class="row tall">
+          <div>
+            <strong>${call.title}</strong>
+            <p>${call.provider || "Fathom"} · ${labelize(call.status)}</p>
+            <small>Action items are pulled into review before they appear here or by text.</small>
+          </div>
+          <a href="${call.recordingUrl || "#"}" target="_blank" rel="noreferrer">Open recording</a>
+        </div>
+      `)
+      .join("") : emptyState("No Fathom recordings are linked for this client yet.")}
+  `;
 }
 
 function clientRosterView() {
@@ -280,6 +368,12 @@ function clientRosterView() {
 
 function relationshipDashboard() {
   const workspace = getWorkspace(state);
+  if (!workspace) {
+    return `
+      <div class="panel-title"><h2>Relationship workspace</h2><span class="pill">none selected</span></div>
+      ${emptyState("Use the manual relationship link tool to connect two clients into a shared workspace.")}
+    `;
+  }
   const issues = relationshipItems(state.relationshipIssues);
   const tasks = relationshipItems(state.relationshipTasks);
   const desires = relationshipItems(state.relationshipDesires);
@@ -304,7 +398,8 @@ function relationshipDashboard() {
 }
 
 function relationshipClientView() {
-  const workspace = getWorkspace(state);
+  const workspace = activeWorkspaceForView();
+  if (!workspace) return "";
   const tasks = relationshipItems(state.relationshipTasks).filter(
     (task) => task.assignedClientIds?.includes(state.session.clientId) || task.assignedClientIds?.length > 1,
   );
@@ -378,7 +473,8 @@ function relationshipTaskCard(task) {
 }
 
 function relationshipItems(collection) {
-  return (collection || []).filter((item) => item.workspaceId === state.session.workspaceId);
+  const workspace = activeWorkspaceForView();
+  return (collection || []).filter((item) => item.workspaceId === workspace?.id);
 }
 
 function assignmentManager() {
@@ -503,8 +599,10 @@ function actionItemsView(mode = "client") {
 
 function roadmapView() {
   const items = clientItems(state.roadmap);
+  const source = driveSourceFor();
   return `
-    <div class="panel-title"><h2>Legacy Roadmap</h2><span class="pill">gap tracking</span></div>
+    <div class="panel-title"><h2>Legacy Roadmap</h2><span class="pill">Drive or future app</span></div>
+    ${source ? `<small>Source: ${source.roadmapLabel} in Google Drive for this MVP.</small>` : ""}
     ${items.length ? items
       .map((item) => {
         const closed = Math.round((item.current / item.target) * 100);
@@ -515,6 +613,7 @@ function roadmapView() {
             <div class="meter"><span style="width:${closed}%"></span></div>
             <p>${item.gapLabel}</p>
             <small>${closed}% toward target · Evidence: ${evidence.length ? evidence.join("; ") : "waiting for journals, actions, or call insights"}</small>
+            ${item.sourceUrl ? `<p><a href="${item.sourceUrl}" target="_blank" rel="noreferrer">Open roadmap source</a></p>` : ""}
           </div>
         `;
       })
@@ -525,7 +624,7 @@ function roadmapView() {
 function libraryView() {
   const recommended = getRecommendedVideos(state, state.session.clientId);
   return `
-    <div class="panel-title"><h2>Framework and cosmology library</h2><span class="pill">${state.videos.length} videos</span></div>
+    <div class="panel-title"><h2>Video Library</h2><span class="pill">${state.videos.length} videos</span></div>
     ${recommended.length ? `<h3>Recommended for your current gap</h3><div class="library-grid">${recommended.map((video) => videoCard(video, recommendationReason(video))).join("")}</div>` : ""}
     <h3>All resources</h3>
     ${state.videos.length ? `<div class="library-grid">${state.videos.map((video) => videoCard(video)).join("")}</div>` : emptyState("No videos have been added to the library yet.")}
@@ -568,8 +667,10 @@ function coachPrepView(checkIn) {
 
 function journalArchiveView() {
   const entries = clientItems(state.journalEntries).toSorted((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  const source = driveSourceFor();
   return `
     <div class="panel-title"><h2>Journal archive</h2><span class="pill">${entries.length} entries</span></div>
+    ${source ? `<p>Journal entries are mapped to <a href="${source.folderUrl}" target="_blank" rel="noreferrer">${source.journalFolderLabel}</a> in the client Google Drive folder.</p>` : ""}
     ${entries.length ? entries
       .map((entry) => `
         <div class="row tall">
@@ -713,6 +814,14 @@ function bindEvents() {
         clientBInput: data.get("clientBInput"),
         stuck: data.get("stuck"),
       });
+      persist();
+    });
+  });
+  app.querySelectorAll(".relationship-builder-form").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      createRelationshipWorkspace(state, data.get("clientAId"), data.get("clientBId"));
       persist();
     });
   });

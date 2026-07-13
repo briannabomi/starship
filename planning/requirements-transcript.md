@@ -65,12 +65,19 @@ Captured from user prompt on 2026-07-08.
 Added 2026-07-13:
 
 - MVP should include Client A and Client B as fake test clients.
+- MVP should include Client C as an unlinked individual client so the coach can test grouping manually.
 - Client A and Client B may be a couple or relationship system.
 - Coach should see both clients on one dashboard.
 - System should support a shared project-manager-style relationship tracker.
 - Shared tracker should include open problems, blocks, assigned tasks, desires, fights, and repair status.
 - Shared tasks may be assigned to Client A, Client B, or both.
 - Individual client privacy should remain separate from shared relationship records.
+- Client portal should only show the logged-in client's own name/profile by default.
+- Partner/shared relationship space should appear only when the coach manually links two clients into a relationship workspace.
+- "Framework and Cosmology Library" should be renamed to "Video Library."
+- Journal archive should map back to the client's Google Drive journal folder.
+- Legacy Roadmap should point to the client's Google Drive roadmap file/folder now, or a future app source later.
+- Client portal should show linked Fathom recordings/transcripts and make clear action items are pulled into review before becoming client-visible.
 
 ## Research And Planning Need
 

@@ -12,6 +12,11 @@ Date: 2026-07-08
 - Vercel project start URL: `https://vercel.com/new?teamSlug=briannabomis-projects`
 - Fake email/phone test data should be used for MVP back-and-forth testing.
 - MVP also needs a couple/relationship workspace with Client A and Client B visible together on the coach dashboard.
+- MVP should include Client C as an unlinked test client, so Bri can manually create a relationship workspace from the coach command center.
+- Client portal default rule: a client sees only their own name/profile and individual workspace unless explicitly linked into a shared relationship workspace.
+- "Framework and Cosmology Library" should be labeled "Video Library."
+- Journal archive and Legacy Roadmap should point back to Google Drive source locations for MVP.
+- Fathom recordings should be visible as linked call artifacts, with action items generated as review candidates before client visibility.
 - Product goal: move from local browser demo data to real persisted client records, with secure role-based access.
 
 ## Recommended Backend Shape
@@ -81,6 +86,7 @@ For Client A and Client B, Bri needs to see:
 - Fight/repair records.
 - Desires named by each client.
 - Status for each shared task or problem: open, blocked, repair in progress, done/closed.
+- A manual linking workflow from the coach command center: choose Client A, choose Client B, create/select relationship workspace.
 
 Each individual client should still have their own login, journal, assignments, check-ins, action items, and roadmap. The relationship workspace is an additional shared layer, not a replacement for individual privacy.
 
