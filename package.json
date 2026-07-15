@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node tools/dev-server.mjs",
-    "test": "node tests/domain.test.mjs",
-    "check": "node tests/domain.test.mjs"
+    "test": "node tests/domain.test.mjs && node tests/quiz-domain.test.mjs",
+    "check": "node tests/domain.test.mjs && node tests/quiz-domain.test.mjs && node --check src/quiz/quiz-app.js"
   }
 }

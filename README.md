@@ -20,3 +20,7 @@ This repo is meant to be the shared source of truth for future agents and collab
 ## Working Principle
 
 Starship should preserve the source documents, then build from them in layers. Do not overwrite source context. Add interpretations, decisions, and plans in `planning/` with dates or clear version notes when the project direction changes.
+
+## Aligned Partner Reflection
+
+The public lead-magnet quiz is available at `/quiz.html` when the local server is running. Its assessment configuration, scoring, interface, and dedicated styles live under `src/quiz/`; quiz-specific domain tests live in `tests/quiz-domain.test.mjs`.
