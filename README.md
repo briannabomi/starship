@@ -23,4 +23,4 @@ Starship should preserve the source documents, then build from them in layers. D
 
 ## Aligned Partner Reflection
 
-The public lead-magnet quiz is available at `/quiz.html` when the local server is running. Its assessment configuration, scoring, interface, and dedicated styles live under `src/quiz/`; quiz-specific domain tests live in `tests/quiz-domain.test.mjs`.
+The public lead-magnet quiz is packaged independently in `moonship/` and is available at `/moonship/quiz.html` when the local server is running. Its assessment configuration, scoring, interface, dedicated styles, tests, research, and implementation records all live inside that folder.

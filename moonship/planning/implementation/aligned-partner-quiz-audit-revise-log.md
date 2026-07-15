@@ -4,7 +4,7 @@ Date: 2026-07-15
 
 ## Audit 1 - parallel integration
 
-- Confirmed the public quiz is isolated at `quiz.html` and does not import or mutate tracker state.
+- Confirmed the public quiz is isolated at `moonship/quiz.html` and does not import or mutate tracker state.
 - Confirmed 11 configured questions, an explicit intimacy transition, optional intimacy answers, and immediate results without an email gate.
 - Confirmed the scoring model produces independent dimensions and a current-priority orientation; it does not output a compatibility percentage, diagnosis, attachment type, or safety score.
 - Repaired a syntax error found when the independently implemented model and UI were joined.
