@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { isAuthDisabled } from "@/lib/demo-mode";
 
 export default async function HomePage() {
-  if (isAuthDisabled()) redirect("/coach");
+  if (isAuthDisabled()) redirect("/demo");
 
   const session = await auth();
   if (!session?.user) redirect("/login");

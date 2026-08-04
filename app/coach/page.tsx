@@ -89,7 +89,7 @@ export default async function CoachPage() {
           <h1>Coach command center</h1>
           {demoMode ? <p className="notice">Demo mode: login is temporarily disabled so you can review the dashboard.</p> : null}
         </div>
-        {demoMode ? <a className="button-link" href="/portal">View client portal</a> : <form action={async () => {
+        {demoMode ? <a className="button-link" href="/demo">Open full MVP demo</a> : <form action={async () => {
           "use server";
           await signOut({ redirectTo: "/login" });
         }}>
