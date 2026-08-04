@@ -42,6 +42,19 @@ button {
   font-weight: 720;
 }
 
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+  background: var(--ink);
+  color: white;
+  padding: 0 13px;
+  font-weight: 720;
+  text-decoration: none;
+}
+
 input {
   width: 100%;
   min-height: 38px;

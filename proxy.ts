@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "./auth";
+import { isAuthDisabled } from "./lib/demo-mode";
 
 const protectedPrefixes = ["/coach", "/portal"];
 
 export default auth((req) => {
+  if (isAuthDisabled()) return NextResponse.next();
+
   const pathname = req.nextUrl.pathname;
   const isProtected = protectedPrefixes.some((prefix) => pathname.startsWith(prefix));
   const user = req.auth?.user;
