@@ -236,3 +236,188 @@ The next audit should expect:
 - At least one mock raw integration event flowing through normalization into candidates.
 - A visible local-demo warning before any real client data is entered.
 - Documented status for each transcript requirement: implemented, mocked, partial, or not started.
+
+---
+
+# 2026-07-13 Multi-Agent Challenge, Check-In, And Coach Dashboard Audit
+
+Date: 2026-07-13
+
+Status: first implementation audit complete; revisions assigned and re-verification pending
+
+Scope: the Challenge Backlog, Weekly Tracker History, Client Portal, and Coach Command Center addendum in `planning/requirements-transcript.md`
+
+## Team Sequence And Artifacts
+
+The work ran as successive specialist teams coordinated by the root orchestrator:
+
+1. The research team investigated established practices for issue-style challenge backlogs, immutable weekly check-in history and coach triage, and private-versus-shared client portal boundaries. It produced:
+   - `planning/research/challenge-backlogs-best-practices.md`
+   - `planning/research/checkin-history-coach-dashboard-best-practices.md`
+   - `planning/research/client-portal-shared-workspace-best-practices.md`
+2. The planning team translated that research into detailed data/domain, client portal, and coach attention plans:
+   - `planning/implementation/challenges-checkin-history-implementation-plan.md`
+   - `planning/implementation/client-portal-challenges-implementation-plan.md`
+   - `planning/implementation/coach-attention-dashboard-implementation-plan.md`
+3. The orchestrator reconciled overlapping recommendations into `planning/implementation/2026-07-13-orchestrated-implementation-brief.md`. The brief selected one challenge/activity model, one immutable check-in collection, actor-last domain signatures, one coach attention projection, and the client/coach session view contracts.
+4. The implementation team worked in parallel on state/domain behavior, automated domain tests, and the integrated client/coach UI. The test workstream added migration, authorization, lifecycle, check-in immutability, challenge linkage, attention sorting, archive exclusion, and session alignment coverage.
+5. Two independent audit workstreams then reviewed UX/browser behavior and domain/state/security behavior. The root orchestrator assigned their findings to UI and domain revision streams for the first audit/revise loop.
+
+This remains a local-first synthetic-data MVP. The research recommendation for authenticated server-side authorization remains deferred and must be completed before real client data is used.
+
+## First UX And Browser Audit Findings
+
+### P1
+
+- **Submitted trackers remained editable and produced a false success path.** The domain correctly rejected amendments, but the client view still rendered the submitted period as an editable form and announced success after the rejected edit. Required revision: render a submitted tracker as read-only and only show success after a successful domain command.
+- **Challenge titles were interpolated into a quoted `data-title` attribute without attribute-safe encoding.** A crafted title could break the attribute boundary. Required revision: remove the unnecessary title attribute or encode it for an HTML attribute context.
+- **The demo role switch exposes coach data by design.** This is not production authorization. Required MVP mitigation: label the switch and environment explicitly as demo-only; production authentication and server authorization remain deferred.
+
+### P2
+
+- **Weekly tracker history showed only a synopsis.** It did not provide the complete immutable answer snapshot required for meaningful historical review.
+- **Challenge and block dialogs reused duplicate element IDs and validation errors were not programmatically associated with the invalid fields.** Required revision: unique IDs per dialog/context plus `aria-describedby`/`aria-invalid` wiring.
+- **Selected-client coach detail included global alerts, calls, and AI candidate queues.** These collections must be filtered to the selected client so the drill-down does not mix client data.
+- **The shared relationship check-in let either participant edit both partners' inputs.** The client view must limit editing to the current participant's own field; the coach may retain the broader demo view where intended.
+
+### P3
+
+- **No-wrap action buttons overflowed at narrow widths.** Required revision: allow action controls to wrap/reflow at the 320px target.
+
+## First Domain, State, And Security Audit Findings
+
+The domain audit began from a passing `npm test`, then used targeted probes to reproduce the following gaps.
+
+### P1
+
+- **Session client/workspace alignment was incomplete.** `createClient`, `createRelationshipWorkspace`, archive edge cases including the last active client, and migration could leave `session.clientId` and `session.workspaceId` pointing at unrelated, inactive, or stale records. Required revision: centralize alignment and apply it after every selection-changing path and migration.
+
+### P2
+
+- **Old support requests were treated as current-week attention.** A stale historical submission could trigger the `Support requested this week` reason and support sort tier. Required revision: retain the latest excerpt for context, but only classify support as current attention when it belongs to the current reporting period.
+- **Normalized challenge edit no-ops still created activity, and `rank` accepted string values.** Required revision: compare normalized values before recording an edit and require a finite numeric rank.
+- **Migration could collide with deterministic challenge IDs and accept an invalid legacy owner.** An unrelated existing `challenge-from-*` ID could be linked as the migrated record, and a nonparticipant legacy owner could survive projection. Required revision: verify migration provenance before reuse, select a collision-safe deterministic ID when needed, and validate relationship ownership against workspace membership.
+- **Versionless/unknown state was accepted and stale sessions were not repaired.** Required revision: only migrate explicitly supported versions and normalize the session to active, authorized records.
+
+### P3
+
+- **Invalid `nextCallAt` values sorted as scheduled even though the row label said `Not scheduled`.** Required revision: use the same validity rule for labels and sorting.
+- **The attention selector mutated partial input state through collection initialization.** Required revision: keep `buildCoachAttentionRows` pure when collections are absent.
+
+## Root Browser Acceptance Pass Before Revision
+
+The root orchestrator exercised the integrated app at `http://127.0.0.1:4173/` and observed these passing flows:
+
+- The coach weekly attention overview rendered and its sort control worked.
+- **View Client C details** aligned the selected detail to Client C without exposing the Client A + Client B workspace.
+- Client C's client navigation did not contain a Relationship destination.
+- Client C could create a private challenge, mark it blocked, and retain the required block reason.
+- Client C could submit the weekly tracker and see the new item in tracker history.
+
+The same pass reproduced one blocking failure: after submission, the tracker form was still editable. This matches the UX auditor's P1 finding and requires re-verification after the UI revision lands.
+
+## Revision Ownership
+
+- Domain/state revision stream: session alignment, current-period support attention, normalized edit/rank validation, collision-safe migration and owner validation, supported-version/session repair, valid-date sorting, and selector purity.
+- UI revision stream: submitted tracker read-only rendering and truthful status, challenge-title attribute safety, demo-only labeling, full history detail, unique/associated dialog errors, selected-client collection filtering, participant-specific shared check-in editing, and narrow-width action reflow.
+- Audit documentation stream: preserve findings, review both fix streams without changing their files, and record verification results.
+
+## Revision Review Status
+
+### Domain/state stream: revised and closed in source/tests
+
+The domain/state reviser reported all seven findings fixed and added regression coverage. The documentation reviewer inspected the landed changes and confirmed:
+
+- One session-alignment helper now repairs client/workspace selection after archive transitions, while client creation clears unrelated workspace state, relationship creation aligns the selected client, and migration repairs stale selections.
+- Attention rows retain historical support text as context but use only a submitted current-period support request for the current-week reason and sort tier.
+- Challenge edits compare normalized values before activity/version mutation and reject non-finite ranks while storing accepted ranks as numbers.
+- Relationship-issue migration verifies provenance before reusing a challenge, selects collision-safe IDs, validates owners against workspace membership, and remains idempotent.
+- Migration accepts only explicit supported integer versions and repairs invalid session state.
+- Invalid calendar dates are consistently labeled/treated as unscheduled for sorting.
+- `buildCoachAttentionRows` reads absent optional arrays without adding them to the input object.
+- An additional actor-scoped relationship check-in rule now limits each active client to the input field assigned by workspace order; coach compatibility remains available.
+
+Targeted regression blocks are present for session transitions, unsupported migration versions and collisions, normalized challenge no-ops/rank typing, stale-versus-current support, invalid next-call dates, selector purity, and participant-scoped relationship check-ins.
+
+### UI stream: revised in source; browser re-verification pending
+
+The UI reviser reported all listed UX findings addressed. Source review confirmed:
+
+- The current editable tracker is selected through `getCurrentWeeklyCheckIn`; submitted fallback content renders through a read-only review component, and the event handler announces success only after `submitCheckIn` succeeds.
+- History expands the frozen question labels, all six submitted answers, and ratings as read-only content.
+- The unsafe challenge `data-title` interpolation is gone. Dynamic external links pass through an HTTP(S)-only URL sanitizer and attribute escaping.
+- Challenge/block dialog IDs include scope context; fields reference their error elements and receive `aria-invalid` on failure.
+- Coach alerts, calls, insight candidates, and action candidates are filtered by the selected client before rendering.
+- A relationship participant receives one editable own-input field and a read-only partner field; the UI passes the actor to the domain command.
+- The role preview is explicitly labeled demo-only with production authentication deferred.
+- Narrow-width CSS permits button and pill text wrapping and collapses action grids at the mobile breakpoint.
+
+### Remaining gaps after source review
+
+- Production authentication/server authorization is still deferred. The demo label mitigates product confusion but does not turn the role preview into a security boundary.
+- The UI fixes have no automated DOM/browser regression suite. Submitted read-only behavior, safe crafted-title rendering, dialog associations/focus, client-filtered detail, participant-only relationship editing, and 320px overflow still require the browser checklist below.
+- The final integrated browser pass and console check were not complete at this documentation checkpoint.
+
+## Pending Re-Verification Checklist
+
+### Automated and source checks
+
+- [x] Run `npm test` after both revision streams land. Passed: `Starship domain workflow tests passed.`
+- [x] Run `npm run check` after both revision streams land. Passed: `Starship domain workflow tests passed.`
+- [x] Run `git diff --check`. Passed at this checkpoint.
+- [x] Confirm source contains no visible `open problems` or `relationship problems` language. The only old-language matches are exact migration inputs in `src/state.js`; rendered/seeded output uses challenges.
+- [x] Confirm the coach shell contains no visible Dummy Drive shortcut or competing active-client switcher.
+- [x] Confirm no unescaped challenge title is interpolated into a quoted HTML attribute. The audited `data-title` use was removed.
+- [x] Add or confirm regression tests for every domain/state audit finding, including negative and no-mutation assertions.
+
+### Browser acceptance
+
+- [ ] Reset demo state before the final pass so migrated/persisted data cannot hide defects.
+- [ ] Re-submit Client C's tracker, confirm the domain success result is honored, and verify the submitted tracker renders read-only with no editable answer fields.
+- [ ] Open a complete history item and verify every frozen question label and answer is visible without editing the stored record.
+- [ ] Create a private challenge with quotes and markup-like characters in its title; verify safe rendering in cards and dialogs.
+- [ ] Trigger challenge and block validation in both private and shared contexts; verify unique IDs, associated errors, focus placement, Escape/cancel, and trigger-focus restoration.
+- [ ] Verify Client A and Client B can see the same shared challenge, while Client C cannot discover the relationship destination or shared records.
+- [ ] As each relationship participant, verify only that participant's shared check-in input is editable.
+- [ ] Alternate coach detail among Clients A, B, and C and verify alerts, calls, candidates, challenges, and workspace content never bleed across the selected client.
+- [ ] Re-check coach attention ordering for blocked, current support, upcoming call, missing/stale, and neutral clients; verify stale support does not receive the current-support tier.
+- [ ] Archive the selected client, archive down to no active clients, unarchive, create a new client, and create/select a relationship; verify client/workspace session alignment after every transition.
+- [ ] Verify archived clients remain absent from attention rows, active roster controls, and relationship-link dropdowns while Unarchive retains their history.
+- [ ] Test 320px reflow and confirm action controls wrap without horizontal overflow.
+- [ ] Verify keyboard-only navigation, visible focus, modal behavior, and the non-color Blocked cue.
+- [ ] Confirm the demo-only/synthetic-data label is visible and does not imply production security.
+- [ ] Confirm no browser console errors during the complete flow.
+
+## Exit Condition For This Loop
+
+This audit/revise loop is complete only when both revision streams have landed, all automated/source checks pass, the failed submitted-tracker browser flow passes, the high-priority privacy/session findings are re-probed, and any remaining gaps are recorded here with explicit status.
+
+## Final Re-Verification Result
+
+Completed by the root orchestrator after both revision streams landed.
+
+- Reset the demo and verified the coach command center renders the weekly attention overview without the Dummy Drive shortcut or client-switcher strip.
+- Verified coach sorting and drill-down. Selecting Client C clears the Client A + Client B workspace and renders only Client C detail.
+- Submitted Client C's tracker with focus, explicit support request, and stuck point. After reload, the current-period tracker renders as a complete read-only response, and history retains every frozen prompt/answer plus ratings.
+- Created and blocked a private Client C challenge with a required reason. Blocked state retained visible text, warning symbol, reason, structural red cue, and recovery actions.
+- Created a challenge title containing quotes and markup-like text. It rendered as text; no script or injected event attribute appeared.
+- Verified Client C has no Relationship destination. Verified Client A and Client B both see the same new shared challenge and each participant receives only their own editable relationship-check-in input while the partner field is read-only.
+- Verified the Video Library is a top-level client destination and does not reproduce relationship challenge content.
+- Verified the coach attention projection updates from the same source records: Client C's submitted focus/support and private block appeared in the cross-client overview; A/B shared challenge counts updated for both participants.
+- Created a new client through the modal, confirmed modal closure and overview insertion, archived it out of the active overview, and restored it with Unarchive.
+- Verified there are no duplicate rendered element IDs across the coach detail/challenge dialogs.
+- Tested a 320px viewport: document width remained 320px and no audited buttons, cards, or dialogs overflowed horizontally.
+- The first Escape-key probe found that native-dialog cancellation did not close reliably in the in-app browser. Added explicit `cancel` and Escape handling with focus restoration, then re-ran the probe: the modal closed and focus returned to Add Client.
+- Final browser console error log was empty across the tested flows.
+- Reset demo data after verification; no synthetic audit records remain in the app state.
+
+Final automated checks passed:
+
+- `npm test`
+- `npm run check`
+- `node --check src/app.js`
+- `node --check src/domain.js`
+- `node --check src/state.js`
+- `git diff --check`
+
+The local-first MVP audit/revise loop is closed for the requested scope. Production authentication, server-enforced authorization, durable database transactions, retention/export/deletion policy, and a permanent automated browser suite remain explicitly deferred production work; the role switch is labeled as a demo preview and must not be treated as a security boundary.

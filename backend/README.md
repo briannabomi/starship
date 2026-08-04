@@ -9,7 +9,7 @@ This folder holds the first executable backend decisions for the Starship client
 - Database: Neon Postgres
 - Auth: Auth.js invite-only email magic links
 - Email sender: Resend or Postmark
-- Coach-owned integrations: Google Drive first, Fathom later
+- Coach-owned integrations: Google Drive first, generic call import later
 
 ## Access Model
 
@@ -33,4 +33,4 @@ The pure permission helpers in `permissions.mjs` are intentionally framework-neu
 5. Move coach/client read and write actions behind server routes.
 6. Sync Google Drive `resources` folder metadata into the `resources` table.
 7. Add coach review/publish controls for resources.
-8. Add Fathom action-item import after Drive resources and auth are stable.
+8. Add generic call transcript/action-item import after Drive resources and auth are stable.

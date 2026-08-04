@@ -69,7 +69,7 @@ Added 2026-07-13:
 - Client A and Client B may be a couple or relationship system.
 - Coach should see both clients on one dashboard.
 - System should support a shared project-manager-style relationship tracker.
-- Shared tracker should include open problems, blocks, assigned tasks, desires, fights, and repair status.
+- Shared tracker should include open challenges, blocks, assigned tasks, desires, fights, and repair status.
 - Shared tasks may be assigned to Client A, Client B, or both.
 - Individual client privacy should remain separate from shared relationship records.
 - Client portal should only show the logged-in client's own name/profile by default.
@@ -84,3 +84,19 @@ Added 2026-07-13:
 ## Research And Planning Need
 
 Research agents should identify industry best practices for implementing these requirements across product design, coaching/client portals, integrations, security/privacy, reminders, metrics, knowledge libraries, and AI transcript extraction.
+
+### Challenge Backlog, Check-In History, And Dashboard Addendum
+
+Added 2026-07-13:
+
+- A linked relationship workspace should let its members add and track open challenges as a shared project-style backlog.
+- Individual clients without a relationship workspace should also be able to maintain a backlog of their own open focus challenges.
+- Challenge records should make it clear whether they are individual or shared and who can see them.
+- Every client should be prompted to complete the weekly tracker.
+- Clients should be able to review the history of their submitted weekly trackers rather than only the latest submission.
+- Remove the Dummy Drive folder shortcut from the coach command center.
+- The coach command center should summarize all active clients in one weekly overview before drill-down.
+- Each client summary should surface the current weekly focus, the area where the client most wants coach support, and blocked items needing attention.
+- Blocked items should be visually prominent for coach and client, using red as an attention cue without relying on color alone.
+- The coach should still be able to open an individual client for deeper detail.
+- A client login should emphasize only that client's dashboard, any linked relationship workspace, and the Video Library.

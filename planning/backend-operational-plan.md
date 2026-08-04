@@ -16,7 +16,7 @@ Date: 2026-07-08
 - Client portal default rule: a client sees only their own name/profile and individual workspace unless explicitly linked into a shared relationship workspace.
 - "Framework and Cosmology Library" should be labeled "Video Library."
 - Journal archive and Legacy Roadmap should point back to Google Drive source locations for MVP.
-- Fathom recordings should be visible as linked call artifacts, with action items generated as review candidates before client visibility.
+- Fathom Recordings are removed from the MVP surface; future call notes or transcripts should stay generic and feed action-item candidates only after coach review.
 - Coach command center needs client lifecycle controls: create client, add contact/profile/source-folder information, and archive client while retaining records.
 - Product goal: move from local browser demo data to real persisted client records, with secure role-based access.
 
@@ -82,11 +82,11 @@ For Client A and Client B, Bri needs to see:
 
 - Both individual client profiles on one dashboard.
 - Shared tasks assigned to one or both clients.
-- Open relationship problems.
+- Open relationship challenges.
 - Blocks.
 - Fight/repair records.
 - Desires named by each client.
-- Status for each shared task or problem: open, blocked, repair in progress, done/closed.
+- Status for each shared task or challenge: open, blocked, repair in progress, done/closed.
 - A manual linking workflow from the coach command center: choose Client A, choose Client B, create/select relationship workspace.
 
 Each individual client should still have their own login, journal, assignments, check-ins, action items, and roadmap. The relationship workspace is an additional shared layer, not a replacement for individual privacy.
@@ -176,8 +176,8 @@ Recommended folder structure:
 Client Name - Starship MVP/
   01 Legacy Roadmap/
     Legacy Roadmap.xlsx or Google Sheet link
-  02 Call Recordings and Transcripts/
-    YYYY-MM-DD Call Transcript.txt or Fathom export
+  02 Call Notes and Transcripts/
+    YYYY-MM-DD Call Transcript.txt
     YYYY-MM-DD Call Summary.md
   03 Journal Assignments/
     Prompt or response docs
@@ -250,7 +250,7 @@ For the MVP, Starship should ingest or reference:
 ### Later For Integrations
 
 - Google OAuth credentials or service-account strategy.
-- Fathom export/API/Zapier/Make path.
+- Optional future call-transcript import path.
 - Twilio account and sending number.
 - SMS consent language.
 

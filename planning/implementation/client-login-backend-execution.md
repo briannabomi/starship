@@ -38,3 +38,4 @@ Convert the static demo into a Next.js App Router project:
 3. Replace the demo role toggle with `auth()` session reads.
 4. Add server actions for creating, archiving, unarchiving, and inviting clients.
 5. Add the first Google Drive resource sync job for the existing `resources` folder.
+6. Keep call imports generic; Fathom Recordings are no longer part of the MVP surface.

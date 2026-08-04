@@ -189,7 +189,7 @@ create table if not exists legacy_roadmaps (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists fathom_recordings (
+create table if not exists call_recordings (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references clients(id) on delete cascade,
   title text not null,
