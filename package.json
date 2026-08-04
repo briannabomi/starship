@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node tools/dev-server.mjs",
+    "test:backend": "node tests/backend-permissions.test.mjs",
     "test": "node tests/domain.test.mjs && node moonship/tests/quiz-domain.test.mjs",
     "check": "node tests/domain.test.mjs && node moonship/tests/quiz-domain.test.mjs && node --check moonship/src/quiz/quiz-app.js"
   }
