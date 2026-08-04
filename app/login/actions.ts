@@ -9,7 +9,7 @@ export async function requestMagicLink(formData: FormData) {
   if (!email) redirect("/login");
 
   try {
-    await signIn("nodemailer", { email, redirectTo: "/portal" });
+    await signIn("resend", { email, redirectTo: "/portal" });
   } catch (error) {
     if (error instanceof AuthError) {
       redirect("/login/check-email");

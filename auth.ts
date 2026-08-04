@@ -1,5 +1,5 @@
 import NextAuth from "next-auth";
-import Nodemailer from "next-auth/providers/nodemailer";
+import Resend from "next-auth/providers/resend";
 import PostgresAdapter from "@auth/pg-adapter";
 import { pool } from "./lib/db";
 import { ensureProfileForEmail, getSessionProfileByUserId, isInvitedEmail } from "./lib/starship-data";
@@ -13,8 +13,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: "/login",
   },
   providers: [
-    Nodemailer({
-      server: process.env.AUTH_EMAIL_SERVER || "smtp://localhost:1025",
+    Resend({
+      apiKey: process.env.AUTH_RESEND_KEY || "re_local_placeholder",
       from: process.env.AUTH_EMAIL_FROM || "Starship <login@example.test>",
       maxAge: 15 * 60,
     }),
