@@ -173,6 +173,15 @@ p {
   color: var(--muted);
 }
 
+.notice {
+  border: 1px solid #e1b84e;
+  border-radius: 8px;
+  background: #fff8e3;
+  color: #5f430e;
+  padding: 11px 12px;
+  font-weight: 680;
+}
+
 @media (max-width: 780px) {
   .topbar,
   .two {
