@@ -2,6 +2,7 @@
 work/
 tmp/
 *.log
+.env.local
 node_modules/
 .next/
 out/
