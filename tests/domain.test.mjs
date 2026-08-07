@@ -18,7 +18,6 @@ import {
   getRecommendedVideos,
   getSubmittedCheckIns,
   mockExtractCall,
-  queueSms,
   reopenChallenge,
   resolveChallenge,
   restoreChallenge,
@@ -175,8 +174,8 @@ function countBy(collection, predicate) {
   assert.equal(approveActionCandidate(state, actionCandidate.id), true);
   assert.equal(state.actionItems[0].source, "mock_call_reviewed");
   assert.equal(state.actionItems[0].createdFromCandidateId, actionCandidate.id);
-  assert.equal(state.deliveries[0].channel, "sms_mock");
-  assert.match(state.deliveries[0].body, /Starship action item/);
+  assert.equal(state.actionItems[0].reminder, "none");
+  assert.equal(state.deliveries.length, 0);
   assert.equal(state.auditLog[0].event, "action.approved");
 
   const actionCount = state.actionItems.length;
@@ -196,17 +195,7 @@ function countBy(collection, predicate) {
   assert.equal(approveActionCandidate(state, state.actionItemCandidates[0].id), true);
   assert.equal(state.deliveries.length, 0, "approved actions should not text clients without consent");
   assert.equal(state.auditLog[0].event, "action.approved");
-  assert.equal(state.auditLog[1].event, "sms.skipped");
-}
-
-{
-  const state = freshState();
-
-  assert.equal(queueSms(state, "client-a", "Your internal_world transcript journal is ready", "sensitive-1"), true);
-  assert.equal(state.deliveries[0].body, "You have a Starship update ready. Open Starship to review your next step.");
-
-  state.clients[0].smsOptOut = true;
-  assert.equal(queueSms(state, "client-a", "Open Starship", "after-stop"), false);
+  assert.ok(!state.auditLog.some((item) => item.event === "sms.skipped"));
 }
 
 {
@@ -992,13 +981,13 @@ function countBy(collection, predicate) {
   ];
   let row = buildCoachAttentionRows(state, { today: "2026-07-13" }).find((item) => item.clientId === "client-c");
   assert.equal(row.primaryAttentionKind, "none");
-  assert.ok(!row.attentionReasons.includes("Support requested this week"));
+  assert.ok(!row.attentionReasons.includes("Coaching focus submitted"));
   state.weeklyCheckIns[1].status = "submitted";
   state.weeklyCheckIns[1].supportRequested = "Current support request";
   state.weeklyCheckIns[1].submittedAt = "2026-07-13T12:00:00.000Z";
   row = buildCoachAttentionRows(state, { today: "2026-07-13" }).find((item) => item.clientId === "client-c");
   assert.equal(row.primaryAttentionKind, "support");
-  assert.ok(row.attentionReasons.includes("Support requested this week"));
+  assert.ok(row.attentionReasons.includes("Coaching focus submitted"));
 }
 
 // Invalid call dates sort with unscheduled calls, and the projection remains a

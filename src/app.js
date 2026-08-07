@@ -28,6 +28,7 @@ import {
   submitCheckIn,
   submitRelationshipCheckIn,
   unarchiveClient,
+  updateClient,
   unblockChallenge,
   updateRelationshipIssueStatus,
   updateRelationshipTaskStatus,
@@ -152,7 +153,7 @@ function shell(content) {
   const requestedClientView = state.session.clientView || "dashboard";
   const clientView = requestedClientView === "relationship" && !workspace ? "dashboard" : requestedClientView;
   if (!isCoachView && clientView !== requestedClientView) state.session.clientView = clientView;
-  const destinationTitle = { dashboard: "My Dashboard", relationship: "Relationship", library: "Video Library" }[clientView] || "My Dashboard";
+  const destinationTitle = { dashboard: "My Dashboard", relationship: "Relationship", library: "Resource Library" }[clientView] || "My Dashboard";
   return `
     <header class="topbar">
       <div>
@@ -174,7 +175,7 @@ function shell(content) {
       <nav class="client-portal-nav" aria-label="Client portal">
         <button data-action="client-view" data-view="dashboard" ${clientView === "dashboard" ? 'aria-current="page" class="active"' : ""}>My Dashboard</button>
         ${workspace ? `<button data-action="client-view" data-view="relationship" ${clientView === "relationship" ? 'aria-current="page" class="active"' : ""}>Relationship</button>` : ""}
-        <button data-action="client-view" data-view="library" ${clientView === "library" ? 'aria-current="page" class="active"' : ""}>Video Library</button>
+        <button data-action="client-view" data-view="library" ${clientView === "library" ? 'aria-current="page" class="active"' : ""}>Resource Library</button>
       </nav>
       <section class="identity-band">
         <div>
@@ -280,7 +281,7 @@ function coachDashboard() {
     </section>
 
     <section class="grid two">
-      <article class="panel">${deliveriesView()}</article>
+      <article class="panel">${manualNotesView()}</article>
       <article class="panel">${auditView()}</article>
     </section>
 
@@ -304,15 +305,6 @@ function clientDashboard() {
     <section class="panel">${weeklyTracker(checkIn)}</section>
     <section class="panel">${challengeSection("client", state.session.clientId)}</section>
     <section class="grid two">
-      <article class="panel hero-panel">
-        <p class="eyebrow">Next best step</p>
-        ${nextAssignment ? `
-          <h2>${nextAssignment.title}</h2>
-          <p>${nextAssignment.prompt}</p>
-          <span class="${statusClass(nextAssignment.status)}">${labelize(nextAssignment.status)}</span>
-          <small>${dueCue(nextAssignment.dueAt)}</small>
-        ` : `<h2>You are current</h2><p>No active assignments are waiting right now.</p>`}
-      </article>
       <article class="panel">
         <div class="panel-title">
           <h2>Recommended now</h2>
@@ -322,10 +314,7 @@ function clientDashboard() {
       </article>
     </section>
     <section class="grid two"><article class="panel">${assignments.length ? assignments.map(assignmentEditor).join("") : emptyState("No journal prompts assigned yet.")}</article><article class="panel">${weeklyHistoryView()}</article></section>
-    <section class="grid two">
-      <article class="panel">${actionItemsView()}</article>
-      <article class="panel">${roadmapView()}</article>
-    </section>
+    <section class="panel">${actionItemsView()}</section>
     <section class="panel">${clientSourceView()}</section>
     <section class="grid two">
       <article class="panel">${journalArchiveView()}</article>
@@ -372,7 +361,7 @@ function attentionCard(row) {
       </div>
       <dl class="attention-facts">
         <div><dt>Current focus</dt><dd>${escapeHtml(row.focusExcerpt || "No focus recorded")}</dd><small>${labelize(row.focusSource || "client_profile")}</small></div>
-        <div><dt>Support requested</dt><dd>${escapeHtml(row.supportExcerpt || "No support request submitted")}</dd></div>
+        <div class="attention-focus"><dt>Coaching focus</dt><dd>${escapeHtml(row.supportExcerpt || "No coaching-focus answer submitted")}</dd></div>
         <div><dt>Check-in</dt><dd>${escapeHtml(row.checkInLabel || labelize(row.checkInState))}</dd><small>${row.checkInHistoryCount ? `${row.checkInHistoryCount} prior submission${row.checkInHistoryCount === 1 ? "" : "s"}` : "No submission history"}</small></div>
         <div><dt>Challenges</dt><dd>${row.individualOpenCount} individual open · ${row.individualBlockedCount} blocked</dd><small>${row.sharedOpenCount} shared open · ${row.sharedBlockedCount} blocked</small></div>
         <div><dt>Next call</dt><dd>${escapeHtml(row.nextCallLabel || dateLabel(row.nextCallAt))}</dd></div>
@@ -503,8 +492,8 @@ function blockDialog(scopeType, scopeId, audience) {
 
 function weeklyHistoryView() {
   const history = getSubmittedCheckIns(state, state.session.clientId, actorId());
-  return `<div class="panel-title"><h2 id="weekly-history-title" tabindex="-1">Weekly tracker history</h2><span class="pill">${history.length} submitted</span></div>
-    ${history.length ? `<ol class="history-list">${history.map((item) => `<li><details><summary>Week ending ${dateLabel(item.periodEnd || item.dueAt)} · Submitted ${dateLabel(item.submittedAt)}</summary><article><p class="audience-label">Read-only · Private to you and Bri</p>${weeklyAnswerReview(item)}</article></details></li>`).join("")}</ol>` : emptyState("Your submitted weekly trackers will appear here.")}`;
+  return `<div class="panel-title"><h2 id="weekly-history-title" tabindex="-1">Accountability form history</h2><span class="pill">${history.length} submitted</span></div>
+    ${history.length ? `<ol class="history-list">${history.map((item) => `<li><details><summary>Week ending ${dateLabel(item.periodEnd || item.dueAt)} · Submitted ${dateLabel(item.submittedAt)}</summary><article><p class="audience-label">Read-only · Private to you and Bri</p>${weeklyAnswerReview(item)}</article></details></li>`).join("")}</ol>` : emptyState("Your submitted accountability forms will appear here.")}`;
 }
 
 const DEFAULT_QUESTION_LABELS = {
@@ -563,13 +552,28 @@ function clientSourceView() {
   const source = driveSourceFor();
   const client = getClient(state);
   return `
-    <div class="panel-title"><h2>Client source folder</h2><span class="pill">${source?.status ? labelize(source.status) : "not linked"}</span></div>
-    <p>${escapeHtml(client.name)}'s journal archive and Legacy Roadmap point back to their Google Drive workspace for this MVP.</p>
+    <div class="panel-title"><h2>Client source folder</h2><div class="button-row"><span class="pill">${source?.status ? labelize(source.status) : "not linked"}</span>${state.session.role === "coach" ? `<button data-action="open-edit-client">Edit client</button>` : ""}</div></div>
+    <p>${escapeHtml(client.name)}'s MVP source of truth is their Google Drive folder. Journal prompts, submitted reflections, roadmap files, and resources can live there while the backend catches up.</p>
     ${source ? `
-      <div class="row tall"><div><strong>Journal entries</strong><p>${escapeHtml(source.journalFolderLabel)}</p><small>Drive-backed journal source</small></div><a href="${safeUrl(source.folderUrl)}" target="_blank" rel="noreferrer">Open Drive</a></div>
-      <div class="row tall"><div><strong>Legacy Roadmap</strong><p>${escapeHtml(source.roadmapLabel)}</p><small>Use Google Drive now; future app can replace this source.</small></div><a href="${safeUrl(source.folderUrl)}" target="_blank" rel="noreferrer">Open roadmap</a></div>
+      <div class="row tall"><div><strong>Google Drive folder</strong><p>${escapeHtml(source.folderUrl)}</p><small>Single client source folder for this MVP</small></div><a href="${safeUrl(source.folderUrl)}" target="_blank" rel="noreferrer">Open Drive</a></div>
     ` : emptyState("No Google Drive source is linked to this client yet.")}
+    ${state.session.role === "coach" ? editClientDialog(client, source) : ""}
   `;
+}
+
+function editClientDialog(client, source) {
+  return `<dialog class="client-edit-modal" data-dialog="edit-client" aria-labelledby="edit-client-title">
+    <form class="edit-client-form" data-id="${escapeHtml(client.id)}">
+      <div class="modal-header"><div><p class="eyebrow">Client Dashboard</p><h2 id="edit-client-title">Edit ${escapeHtml(client.name)}</h2></div><button class="icon-button" type="button" data-action="close-dialog" aria-label="Close edit client form">×</button></div>
+      <label>Name<input name="name" value="${escapeHtml(client.name)}" required /></label>
+      <label>Email<input name="email" type="email" value="${escapeHtml(client.email || "")}" /></label>
+      <label>Phone<input name="phone" type="tel" value="${escapeHtml(client.phone || "")}" /></label>
+      <label>Current focus<input name="focus" value="${escapeHtml(client.focus || "")}" /></label>
+      <label>Next call date<input name="nextCallAt" type="date" value="${escapeHtml(String(client.nextCallAt || "").slice(0, 10))}" /></label>
+      <label>Google Drive folder<input name="folderUrl" type="url" value="${escapeHtml(source?.folderUrl || "")}" /></label>
+      <div class="modal-actions"><button type="button" data-action="close-dialog">Cancel</button><button type="submit">Save client</button></div>
+    </form>
+  </dialog>`;
 }
 
 function addClientDialog() {
@@ -791,20 +795,20 @@ function assignmentEditor(assignment) {
 }
 
 function weeklyTracker(checkIn) {
-  if (!checkIn) return emptyState("No weekly tracker is scheduled yet.");
+  if (!checkIn) return emptyState("No accountability form is scheduled yet.");
   const openActions = clientItems(state.actionItems).filter((item) => item.status !== "done");
   const filledFields = WEEKLY_TRACKER_FIELDS.filter((field) => checkIn[field]?.trim()).length;
   if (["submitted", "amended", "reviewed"].includes(checkIn.status)) {
     return `<div class="submitted-tracker" aria-labelledby="submitted-tracker-title">
-      <div class="panel-title"><h2 id="submitted-tracker-title">Weekly tracker submitted</h2><span class="${statusClass(checkIn.status)}">${labelize(checkIn.status)}</span></div>
+      <div class="panel-title"><h2 id="submitted-tracker-title">Accountability form submitted</h2><span class="${statusClass(checkIn.status)}">${labelize(checkIn.status)}</span></div>
       <p class="audience-label">Private · Visible to you and Bri · Read-only</p>
       <small>Week ending ${dateLabel(checkIn.periodEnd || checkIn.dueAt)} · Submitted ${dateLabel(checkIn.submittedAt)}</small>
-      ${weeklyAnswerReview(checkIn)}
+      <p>Your form is in. Bri can now see what you most want coaching on this week.</p>
     </div>`;
   }
   return `
     <form class="checkin-form" data-action="checkin" data-id="${checkIn.id}">
-      <div class="panel-title"><h2>Weekly tracker</h2><span class="${statusClass(checkIn.status)}">${labelize(checkIn.status)}</span></div>
+      <div class="panel-title"><h2>Accountability form</h2><span class="${statusClass(checkIn.status)}">${labelize(checkIn.status)}</span></div>
       <p class="audience-label">Private · Visible to you and Bri</p>
       <div class="tracker-intro">
         <p>This check-in will take around 3-5 minutes.</p>
@@ -822,9 +826,9 @@ function weeklyTracker(checkIn) {
       <label>What is your biggest win this past week?<span class="required-marker">*</span><small>This could be a breakthrough moment, completed task, mindset shift, something from your personal life, etc.</small><textarea name="alive" required>${escapeHtml(checkIn.alive)}</textarea></label>
       <label>What is the ONE thing that, if you did it this week, would move your relationship and/or life forward the most?<small>Not three things. Not the easiest thing. The one that matters most. Be specific enough that you'll know by next week whether you did it or not.</small><textarea name="focus">${escapeHtml(checkIn.focus)}</textarea></label>
       <label>What specific steps do you need to take to make that a reality this week? List the steps in order.<small>Put these in your to-do list and calendar after so you have clarity going forward.</small><textarea name="completed">${escapeHtml(checkIn.completed)}</textarea></label>
-      <label>What do you most want coaching on this week, and what would make this week's call feel like a win?<textarea name="questions">${escapeHtml(checkIn.questions)}</textarea></label>
+      <label class="focus-question">What do you most want coaching on this week, and what would make this week's call feel like a win?<textarea name="questions">${escapeHtml(checkIn.questions)}</textarea></label>
       <p class="form-error" role="alert"></p>
-      <button type="submit">Submit weekly tracker</button>
+      <button type="submit">Submit accountability form</button>
     </form>
   `;
 }
@@ -848,9 +852,9 @@ function actionCandidateCard(item) {
       <span class="pill">action item</span>
       <h3>${escapeHtml(item.title)}</h3>
       <p>${escapeHtml(item.description)}</p>
-      <small>${dueCue(item.dueAt)} · ${Math.round((item.confidence || 0) * 100)}% confidence · SMS draft below</small>
+      <small>${dueCue(item.dueAt)} · ${Math.round((item.confidence || 0) * 100)}% confidence · client-facing draft below</small>
       <blockquote>${escapeHtml(item.clientMessageDraft)}</blockquote>
-      <button data-action="approve-action" data-id="${item.id}">Approve and queue SMS</button>
+      <button data-action="approve-action" data-id="${item.id}">Approve action item</button>
     </div>
   `;
 }
@@ -879,7 +883,7 @@ function actionItemsView(mode = "client") {
                 <button data-action="block-action" data-id="${item.id}" ${item.status === "done" || item.status === "blocked" ? "disabled" : ""}>Mark blocked</button>
                 <button data-action="complete-action" data-id="${item.id}" ${item.status === "done" ? "disabled" : ""}>${item.status === "done" ? "Done" : "Mark done"}</button>
               </div>
-            ` : `<small>${item.reminder === "sms" ? "SMS reminder enabled" : "No reminder"}</small>`}
+            ` : `<small>Visible as an action item</small>`}
           </div>
         `,
       )
@@ -914,10 +918,10 @@ function roadmapView() {
 function libraryView() {
   const recommended = getRecommendedVideos(state, state.session.clientId);
   return `
-    <div class="panel-title"><h2>Video Library</h2><span class="pill">${state.videos.length} videos</span></div>
+    <div class="panel-title"><h2>Resource Library</h2><span class="pill">${state.videos.length} resources</span></div>
     ${recommended.length ? `<h3>Recommended for your current gap</h3><div class="library-grid">${recommended.map((video) => videoCard(video, recommendationReason(video))).join("")}</div>` : ""}
     <h3>All resources</h3>
-    ${state.videos.length ? `<div class="library-grid">${state.videos.map((video) => videoCard(video)).join("")}</div>` : emptyState("No videos have been added to the library yet.")}
+    ${state.videos.length ? `<div class="library-grid">${state.videos.map((video) => videoCard(video)).join("")}</div>` : emptyState("No resources have been added to the library yet.")}
   `;
 }
 
@@ -944,14 +948,20 @@ function coachPrepView(checkIn) {
   const stuck = checkIn?.stuck?.trim();
   const questions = checkIn?.questions?.trim();
   const openActions = clientItems(state.actionItems).filter((item) => item.status !== "done");
+  const openChallenges = getChallenges(state, { scopeType: "client", scopeId: state.session.clientId }, actorId()).filter((item) => item.status !== "resolved");
   return `
-    <div class="panel-title"><h2>Pre-call check-in</h2><span class="${statusClass(checkIn?.status || "not_opened")}">${labelize(checkIn?.status || "not_opened")}</span></div>
+    <div class="panel-title"><h2>Pre-call prep from accountability form</h2><span class="${statusClass(checkIn?.status || "not_opened")}">${labelize(checkIn?.status || "not_opened")}</span></div>
     ${checkIn ? `
+      <div class="focus-highlight">
+        <span class="label">Coach this</span>
+        <strong>What they most want coaching on this week</strong>
+        <p>${escapeHtml(questions) || "No coaching-focus answer submitted yet."}</p>
+      </div>
       <div class="row tall"><div><strong>Client focus</strong><p>${escapeHtml(checkIn.focus) || "No focus submitted yet."}</p><small>${dueCue(checkIn.dueAt)}${checkIn.submittedAt ? ` · submitted ${checkIn.submittedAt}` : ""}</small></div></div>
-      <div class="row tall"><div><strong>Questions</strong><p>${escapeHtml(questions) || "No questions submitted yet."}</p></div></div>
       <div class="row tall"><div><strong>Stuck or blocked</strong><p>${escapeHtml(stuck) || "No stuck point submitted yet."}</p></div></div>
-      <div class="row tall"><div><strong>Open commitments</strong><p>${openActions.length ? openActions.map((item) => `${item.title} (${labelize(item.status)})`).join("; ") : "No open action items."}</p></div></div>
-    ` : emptyState("No weekly tracker is scheduled yet.")}
+      <div class="row tall"><div><strong>Related challenges</strong><p>${openChallenges.length ? openChallenges.map((item) => `${item.title} (${labelize(item.status)})`).join("; ") : "No open challenges yet."}</p></div></div>
+      <div class="row tall"><div><strong>Open action items</strong><p>${openActions.length ? openActions.map((item) => `${item.title} (${labelize(item.status)})`).join("; ") : "No open action items."}</p></div></div>
+    ` : emptyState("No accountability form is scheduled yet.")}
   `;
 }
 
@@ -992,10 +1002,15 @@ function progressEvidenceView() {
   `;
 }
 
-function deliveriesView() {
+function manualNotesView() {
+  const notes = (state.coachNotes || []).filter((item) => item.clientId === state.session.clientId);
   return `
-    <div class="panel-title"><h2>Mock SMS deliveries</h2><span class="pill">${state.deliveries.length}</span></div>
-    ${state.deliveries.length ? state.deliveries.map((item) => `<div class="row"><span class="pill">${item.channel}</span><p>${item.body}</p></div>`).join("") : `<p class="empty">No queued SMS yet.</p>`}
+    <div class="panel-title"><h2>Manual notes</h2><span class="pill">${notes.length}</span></div>
+    <form class="note-form">
+      <label>Add a coach-only note<textarea name="body" rows="3" placeholder="Private note for this client"></textarea></label>
+      <button type="submit">Add note</button>
+    </form>
+    ${notes.length ? notes.map((item) => `<div class="row tall"><div><small>${dateLabel(item.createdAt)} · coach only</small><p>${escapeHtml(item.body)}</p></div></div>`).join("") : `<p class="empty">No manual notes yet.</p>`}
   `;
 }
 
@@ -1076,6 +1091,12 @@ function bindEvents() {
       lastDialogTrigger?.focus();
     }
   });
+  app.querySelectorAll("[data-action='open-edit-client']").forEach((button) => button.addEventListener("click", () => {
+    lastDialogTrigger = button;
+    const dialog = button.closest(".panel")?.querySelector("[data-dialog='edit-client']");
+    dialog?.showModal();
+    dialog?.querySelector("input[name='name']")?.focus();
+  }));
   app.querySelectorAll("[data-action='open-challenge-dialog']").forEach((button) => {
     button.addEventListener("click", () => {
       lastDialogTrigger = button;
@@ -1247,11 +1268,11 @@ function bindEvents() {
         completed: data.get("completed"),
       }, [], actorId());
       if (submitted) {
-        announce("Weekly tracker submitted");
+        announce("Accountability form submitted");
         pendingFocusId = "weekly-history-title";
         persist();
       } else {
-        form.querySelector(".form-error").textContent = "The weekly tracker could not be submitted. Review your responses and try again.";
+        form.querySelector(".form-error").textContent = "The accountability form could not be submitted. Review your responses and try again.";
         form.querySelector("textarea")?.focus();
       }
     });
@@ -1289,6 +1310,43 @@ function bindEvents() {
       });
       if (!client) return;
       announce(`${client.name} added`);
+      persist();
+    });
+  });
+  app.querySelectorAll(".edit-client-form").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      const updated = updateClient(state, form.dataset.id, {
+        name: data.get("name"),
+        email: data.get("email"),
+        phone: data.get("phone"),
+        focus: data.get("focus"),
+        nextCallAt: data.get("nextCallAt"),
+        folderUrl: data.get("folderUrl"),
+      });
+      if (!updated) return;
+      announce("Client updated");
+      persist();
+    });
+  });
+  app.querySelectorAll(".note-form").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const body = String(new FormData(form).get("body") || "").trim();
+      if (!body) {
+        form.querySelector("textarea")?.focus();
+        return;
+      }
+      if (!Array.isArray(state.coachNotes)) state.coachNotes = [];
+      state.coachNotes.unshift({
+        id: `note-${Date.now()}`,
+        clientId: state.session.clientId,
+        body,
+        createdAt: new Date().toISOString().slice(0, 10),
+        createdBy: "coach-bri",
+      });
+      announce("Manual note added");
       persist();
     });
   });

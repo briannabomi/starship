@@ -1,5 +1,3 @@
-const SENSITIVE_SMS_PATTERNS = [/journal/i, /transcript/i, /internal[_ -]?world/i, /chest/i, /protector/i];
-
 function isoToday() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -62,15 +60,6 @@ function hasActiveConsent(client, consentType) {
 
 function alreadyPromoted(collection, sourceCandidateId) {
   return Array.isArray(collection) && collection.some((item) => item.createdFromCandidateId === sourceCandidateId);
-}
-
-function sanitizeSmsBody(body) {
-  const text = String(body || "").trim();
-  if (!text) return "";
-  if (SENSITIVE_SMS_PATTERNS.some((pattern) => pattern.test(text))) {
-    return "You have a Starship update ready. Open Starship to review your next step.";
-  }
-  return text.length > 180 ? `${text.slice(0, 177)}...` : text;
 }
 
 const QUESTION_LABELS = {
@@ -598,9 +587,9 @@ export function submitCheckIn(state, checkInId, updates = {}, challengeActions =
   for (const challenge of links) {
     appendChallengeActivity(state, challenge, actor, "linked_to_checkin", {}, "weekly_tracker", checkIn.id);
   }
-  recordCompletion(state, checkIn.clientId, "weekly_check_in", checkIn.id, "Weekly tracker submitted");
-  pushAlert(state, checkIn.clientId, checkIn.stuck ? "checkin_stuck" : "checkin_submitted", "Weekly tracker submitted.");
-  addAudit(state, "checkin.submitted", "Weekly tracker submitted", actor, { checkInId });
+  recordCompletion(state, checkIn.clientId, "weekly_check_in", checkIn.id, "Accountability form submitted");
+  pushAlert(state, checkIn.clientId, checkIn.stuck ? "checkin_stuck" : "checkin_submitted", "Accountability form submitted.");
+  addAudit(state, "checkin.submitted", "Accountability form submitted", actor, { checkInId });
   return true;
 }
 
@@ -686,15 +675,57 @@ export function createClient(state, input = {}) {
     id: makeId("drive"),
     clientId: id,
     folderUrl,
-    journalFolderLabel: "Journal Entries",
+    journalFolderLabel: "Journal Archive",
     roadmapLabel: "Legacy Roadmap",
-    videoFolderLabel: "Video Library",
+    videoFolderLabel: "Resource Library",
     status: folderUrl ? "mock_ready" : "not_linked",
   });
   state.session.clientId = id;
   state.session.workspaceId = null;
   addAudit(state, "client.created", `Created ${name}`, "coach-bri", { clientId: id });
   return client;
+}
+
+export function updateClient(state, clientId, input = {}) {
+  const client = getClient(state, clientId);
+  if (!client || client.archivedAt) {
+    addAudit(state, "client.update_failed", "Client update failed", "system", { clientId });
+    return false;
+  }
+  const name = String(input.name ?? client.name).trim();
+  if (!name) return false;
+  client.name = name;
+  client.email = String(input.email ?? client.email ?? "").trim();
+  client.phone = String(input.phone ?? client.phone ?? "").trim();
+  client.focus = String(input.focus ?? client.focus ?? "").trim();
+  client.nextCallAt = String(input.nextCallAt ?? client.nextCallAt ?? "").trim();
+
+  const user = ensureList(state, "users").find((item) => item.id === clientId);
+  if (user) {
+    user.name = client.name;
+    user.email = client.email;
+    user.phone = client.phone;
+  }
+
+  const source = ensureList(state, "googleDriveSources").find((item) => item.clientId === clientId);
+  const folderUrl = String(input.folderUrl ?? source?.folderUrl ?? "").trim();
+  if (source) {
+    source.folderUrl = folderUrl;
+    source.status = folderUrl ? "mock_ready" : "not_linked";
+  } else if (folderUrl) {
+    ensureList(state, "googleDriveSources").push({
+      id: makeId("drive"),
+      clientId,
+      folderUrl,
+      journalFolderLabel: "Journal Archive",
+      roadmapLabel: "Legacy Roadmap",
+      videoFolderLabel: "Resource Library",
+      status: "mock_ready",
+    });
+  }
+
+  addAudit(state, "client.updated", `Updated ${client.name}`, "coach-bri", { clientId });
+  return true;
 }
 
 export function archiveClient(state, clientId) {
@@ -903,7 +934,7 @@ export function mockExtractCall(state, callId) {
     sensitivity: "low",
     confidence: 0.91,
     reviewStatus: "candidate",
-    reviewRequiredReason: "Call-derived action requires coach approval before SMS delivery.",
+    reviewRequiredReason: "Call-derived action requires coach approval before it becomes client-visible.",
     createdBy: "mock_extractor",
     createdAt: isoToday(),
   });
@@ -977,15 +1008,14 @@ export function approveActionCandidate(state, id) {
     source: "mock_call_reviewed",
     dueAt: candidate.dueAt,
     status: "open",
-    reminder: "sms",
+    reminder: "none",
     evidenceRef: candidate.evidenceRef,
     priority: candidate.priority || "normal",
-    clientMessage: sanitizeSmsBody(candidate.clientMessageDraft),
+    clientMessage: String(candidate.clientMessageDraft || "").trim(),
     createdFromCandidateId: id,
     approvedAt: isoToday(),
   };
   ensureList(state, "actionItems").unshift(action);
-  queueSms(state, candidate.clientId, candidate.clientMessageDraft, action.id);
   addAudit(state, "action.approved", candidate.title, "coach-bri", { candidateId: id, actionId: action.id, clientId: candidate.clientId });
   return true;
 }
@@ -1080,27 +1110,6 @@ export function submitRelationshipCheckIn(state, checkInId, updates, actorId) {
     checkInId,
     workspaceId: checkIn.workspaceId,
   });
-  return true;
-}
-
-export function queueSms(state, clientId, body, relatedId) {
-  const client = getClient(state, clientId);
-  if (!hasActiveConsent(client, "sms")) {
-    addAudit(state, "sms.skipped", "SMS skipped because active consent is missing", "system", { clientId, relatedId });
-    return false;
-  }
-  const safeBody = sanitizeSmsBody(body);
-  if (!safeBody) return false;
-  ensureList(state, "deliveries").unshift({
-    id: makeId("delivery"),
-    clientId,
-    channel: "sms_mock",
-    body: safeBody,
-    relatedId,
-    status: "queued",
-    createdAt: isoToday(),
-  });
-  addAudit(state, "sms.queued", "Mock SMS queued", "system", { clientId, relatedId });
   return true;
 }
 
@@ -1240,7 +1249,7 @@ export function buildCoachAttentionRows(state, { today = isoToday(), sort = stat
     const latest = submittedRecords[0] || null;
     const checkIn = currentCheckInFacts(records, latest, today);
     const currentSubmitted = checkIn.state === "submitted" ? checkIn.current : null;
-    const hasCurrentSupport = Boolean(String(currentSubmitted?.supportRequested || "").trim());
+    const hasCurrentSupport = Boolean(String(currentSubmitted?.questions || currentSubmitted?.supportRequested || "").trim());
     const workspaceIds = new Set(
       activeWorkspaces.filter((workspace) => (workspace.clientIds || []).includes(client.id)).map((workspace) => workspace.id),
     );
@@ -1253,7 +1262,7 @@ export function buildCoachAttentionRows(state, { today = isoToday(), sort = stat
     const call = nextCallFacts(client.nextCallAt, today);
     const reasons = [];
     if (totalBlockedCount) reasons.push(`${totalBlockedCount === 1 ? "Blocked challenge" : `${totalBlockedCount} blocked challenges`}`);
-    if (hasCurrentSupport) reasons.push("Support requested this week");
+    if (hasCurrentSupport) reasons.push("Coaching focus submitted");
     if (call.difference != null && call.difference >= 0 && call.difference <= 3) {
       reasons.push(call.difference === 0 ? "Call today" : call.difference === 1 ? "Call tomorrow" : `Call in ${call.difference} days`);
     }
@@ -1274,7 +1283,7 @@ export function buildCoachAttentionRows(state, { today = isoToday(), sort = stat
       clientName: String(client.name || ""),
       focusExcerpt: boundedExcerpt(latest?.focus || client.focus || "No current focus submitted"),
       focusSource: String(latest?.focus || "").trim() ? "latest_checkin" : "client_profile",
-      supportExcerpt: boundedExcerpt(latest?.supportRequested || "No support request submitted"),
+      supportExcerpt: boundedExcerpt(latest?.questions || latest?.supportRequested || "No coaching-focus answer submitted"),
       latestCheckInId: latest?.id || null,
       latestSubmittedAt: latest?.submittedAt || null,
       checkInState: checkIn.state,

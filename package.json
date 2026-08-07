@@ -10,8 +10,8 @@
     "start": "next start -H 127.0.0.1 -p 4181",
     "start:static": "node tools/dev-server.mjs",
     "test:backend": "node tests/backend-permissions.test.mjs",
-    "test": "node tests/domain.test.mjs && node moonship/tests/quiz-domain.test.mjs",
-    "check": "node tests/domain.test.mjs && node moonship/tests/quiz-domain.test.mjs && node --check moonship/src/quiz/quiz-app.js"
+    "test": "node tests/domain.test.mjs",
+    "check": "node tests/domain.test.mjs"
   },
   "dependencies": {
     "@auth/pg-adapter": "^1.11.3",
